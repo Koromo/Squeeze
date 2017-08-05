@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\squeeze\sqztable.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\squeeze\sqzstackop.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\squeeze\sqztraits.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\squeeze\sqzdef.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\squeeze\squeeze.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\squeeze\sqzscript.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\squeeze\sqzobject.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\squeeze\sqzvm.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\squeeze\sqzvm_impl.h">
+      <Filter>src</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
