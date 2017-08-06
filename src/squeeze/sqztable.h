@@ -107,23 +107,22 @@ namespace squeeze
             {
                 Fun* fun;
                 auto r = sq_getuserdata(vm, -1, reinterpret_cast<SQUserPointer*>(&fun), nullptr);
-                return function(vm, *fun, makeIndexSequence<ArgumentTypes<Fun>::length>());
+                return function(vm, *fun, MakeIndexSequence<FunctionTraits<Fun>::arity>());
             }
 
             template <class Fun, size_t... ArgIndices>
             static auto function(HSQUIRRELVM vm, Fun fun, IndexSequence<ArgIndices...>)
-                -> std::enable_if_t<std::is_same<ResultType<Fun>, void>::value, SQInteger>
+                -> std::enable_if_t<std::is_same<ReturnType<Fun>, void>::value, SQInteger>
             {
-                using Args = ArgumentTypes<Fun>;
-                fun(getValue<Args::Type<ArgIndices>>(vm, ArgIndices - Args::length)...);
+                fun(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices - FunctionTraits<Fun>::arity)...);
                 return 0;
             }
 
             template <class Fun, size_t... ArgIndices>
             static auto function(HSQUIRRELVM vm, Fun fun, IndexSequence<ArgIndices...>)
-                -> std::enable_if_t<!std::is_same<ResultType<Fun>, void>::value, SQInteger>
+                -> std::enable_if_t<!std::is_same<ReturnType<Fun>, void>::value, SQInteger>
             {
-                pushValue(vm, fun(getValue<Args::Type<ArgIndices>>(vm, ArgIndices - Args::length)...));
+                pushValue(vm, fun(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices - FunctionTraits<Fun>::arity)...));
                 return 1;
             }
         };

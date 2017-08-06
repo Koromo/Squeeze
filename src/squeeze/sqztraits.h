@@ -2,52 +2,49 @@
 #define SQUEEZE_SQZTRAITS_H
 
 #include <tuple>
+#include <type_traits>
 
 namespace squeeze
 {
-    template <class... Args>
-    struct TypeList
+    namespace detail
     {
-        static constexpr size_t length = sizeof...(Args);
+        template <class T>
+        struct FunctionTraitsImpl : FunctionTraitsImpl<decltype(&T::operator())> {};
 
-        template <size_t N>
-        using Type = typename std::tuple_element<N, std::tuple<Args...>>::type;
-    };
+        template <class R, class... Args>
+        struct FunctionTraitsImpl<R(Args...)>
+        {
+            using ReturnType = R;
 
-    template <class T>
-    struct SignatureOf;
+            enum { arity = sizeof...(Args) };
 
-    template <class R, class... Args>
-    struct SignatureOf<R(*)(Args...)> // Function
-    {
-        using Result = R;
-        using Arguments = TypeList<Args...>;
-    };
+            using Arguments = std::tuple<Args...>;
 
-    template <class C, class R, class... Args>
-    struct SignatureOf<R(C::*)(Args...)> // Member function
-    {
-        using Result = R;
-        using Arguments = TypeList<Args...>;
-    };
+            template <size_t N>
+            using ArgumentType = std::enable_if_t<(N < arity), std::tuple_element_t<N, Arguments>>;
+        };
 
-    template <class C, class R, class... Args>
-    struct SignatureOf<R(C::*)(Args...) const> // Const member function
-    {
-        using Result = R;
-        using Arguments = TypeList<Args...>;
-    };
+        template <class R, class... Args>
+        struct FunctionTraitsImpl<R(*)(Args...)> : FunctionTraitsImpl<R(Args...)> {};
 
-    template <class C>
-    struct SignatureOf : SignatureOf<decltype(&C::operator())> // Functor
-    {
-    };
+        template <class C, class R, class... Args>
+        struct FunctionTraitsImpl<R(C::*)(Args...)> : FunctionTraitsImpl<R(Args...)> {};
 
+        template <class C, class R, class... Args>
+        struct FunctionTraitsImpl<R(C::*)(Args...) const> : FunctionTraitsImpl<R(Args...)> {};
+    }
+
+    /// The FunctionTraits
     template <class Fun>
-    using ResultType = typename SignatureOf<Fun>::Result;
+    using FunctionTraits = typename detail::FunctionTraitsImpl<std::decay_t<Fun>>;
 
+    /// Shortcut to FunctionTraits
     template <class Fun>
-    using ArgumentTypes = typename SignatureOf<Fun>::Arguments;
+    using ReturnType = typename FunctionTraits<Fun>::ReturnType;
+
+    /// ditto
+    template <class Fun, size_t N>
+    using ArgumentType = std::enable_if_t<(N < FunctionTraits<Fun>::arity), std::tuple_element_t<N, typename FunctionTraits<Fun>::Arguments>>;
 
     template <size_t... Indices>
     struct IndexSequence
@@ -57,24 +54,20 @@ namespace squeeze
 
     namespace detail
     {
-        template <size_t N, size_t I, size_t... Indices>
-        struct MakeIndexSeq : MakeIndexSeq<N - 1, I + 1, Indices..., I>
+        template <size_t N, size_t Extend, size_t Step, size_t... Indices>
+        struct MakeIndices : MakeIndices<N - 1, Extend + Step, Step, Indices..., Extend>
         {
         };
 
-        template <size_t I, size_t... Indices>
-        struct MakeIndexSeq<0, I, Indices...>
+        template <size_t Extend, size_t Step, size_t... Indices>
+        struct MakeIndices<0, Extend, Step, Indices...>
         {
             using Type = IndexSequence<Indices...>;
         };
     }
 
     template <size_t N>
-    auto makeIndexSequence()
-        -> decltype(detail::MakeIndexSeq<N, 0>::Type())
-    {
-        return detail::MakeIndexSeq<N, 0>::Type();
-    }
+    using MakeIndexSequence = typename detail::MakeIndices<N, 0, 1>::Type;
 }
 
 #endif
