@@ -3,11 +3,11 @@
 
 #include "sqzvm.h"
 #include "sqzdef.h"
-#include "../squirrel/squirrel.h"
+#include "squirrel/squirrel.h"
 
 namespace squeeze
 {
-    /// The Object
+    /// The Object handle
     class HObject
     {
     protected:
@@ -15,9 +15,9 @@ namespace squeeze
         HSQOBJECT obj_;
 
     public:
-        /// Constructor
-        HObject(HVM vm)
-            : vm_(vm)
+        /// Construct
+        HObject()
+            : vm_()
             , obj_()
         {
             sq_resetobject(&obj_);
@@ -41,7 +41,7 @@ namespace squeeze
             *this = that;
         }
 
-        /// Destructor
+        /// Destruct
         virtual ~HObject()
         {
             release();
@@ -76,13 +76,13 @@ namespace squeeze
             return obj_;
         }
 
-        /// Return the vm
+        /// Return the VM
         HVM vm()
         {
             return vm_;
         }
 
-        /// Release handle
+        /// Release the object handle
         void release()
         {
             /// TODO: VM release hook

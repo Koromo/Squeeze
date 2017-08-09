@@ -1,34 +1,41 @@
 #ifndef SQUEEZE_SQZTABLE_H
 #define SQUEEZE_SQZTABLE_H
 
-#include "sqzobject.h"
+#include "sqztableimpl.h"
 #include "sqzstackop.h"
 #include "sqzdef.h"
 #include "sqztraits.h"
-#include "../squirrel/squirrel.h"
+#include "squirrel/squirrel.h"
 #include <type_traits>
 
 namespace squeeze
 {
-    /// The Table
-    class HTable : public HObject
+    template <class Class> class HClass;
+
+    /// The Table handle
+    class HTable : public HTableImpl
     {
     public:
+        /// Construct
+        HTable() = default;
+
         /// Create a table
         explicit HTable(HVM vm)
-            : HObject(vm)
         {
-            const auto top = sq_gettop(vm);
-            sq_newtable(vm);
-            sq_getstackobj(vm, -1, &obj_);
-            sq_addref(vm, &obj_);
-            sq_settop(vm, top);
+            vm_ = vm;
+
+            const auto top = sq_gettop(vm_);
+            sq_newtable(vm_);
+            sq_getstackobj(vm_, -1, &obj_);
+            sq_addref(vm_, &obj_);
+            sq_settop(vm_, top);
         }
 
         HTable(HVM vm, HSQOBJECT obj)
-            : HObject(vm)
         {
+            vm_ = vm;
             obj_ = obj;
+            sq_addref(vm_, &obj_);
         }
 
         /// Create a clone
@@ -37,9 +44,7 @@ namespace squeeze
             HTable clo(vm_);
 
             const auto top = sq_gettop(vm_);
-            sq_pushobject(vm_, obj_);
-            sq_pushobject(vm_, clo.obj_);
-            sq_pushnull(vm_);
+            pushValue(vm_, obj_, clo.obj_, nullptr);
             while (SQ_SUCCEEDED(sq_next(vm_, -3)))
             {
                 sq_newslot(vm_, -4, SQFalse);
@@ -51,93 +56,77 @@ namespace squeeze
 
         /// Set a variable
         template <class T>
-        HTable& setVariable(const char_t* name, T val)
+        HTable& var(string_t name, T val)
         {
-            const auto top = sq_gettop(vm_);
-            sq_pushobject(vm_, obj_);
-            sq_pushstring(vm_, name, -1);
-            pushValue(vm_, val);
-            sq_newslot(vm_, -3, SQFalse);
-            sq_settop(vm_, top);
-            return *this;
-        }
-
-        /// Set a function as a closure
-        template <class Fun>
-        HTable& setFunction(const char_t* name, Fun fun)
-        {
-            setClosure(name, Closure::function<Fun>, fun);
+            newSlot(name, val, false);
             return *this;
         }
 
         /// Set a table
-        HTable& setTable(const char_t* name, HTable t)
+        HTable& table(string_t name, HTable t)
         {
-            const auto top = sq_gettop(vm_);
-            sq_pushobject(vm_, obj_);
-            sq_pushstring(vm_, name, -1);
-            sq_pushobject(vm_, t);
-            sq_newslot(vm_, -3, SQFalse);
-            sq_settop(vm_, top);
+            newSlot(name, t, false);
             return *this;
         }
 
-        /// Check the value type
-        bool is(TypeTag type, const char_t* name)
+        /// Set a class
+        template <class Class>
+        HTable& klass(string_t name, HClass<Class> c);
+
+        /// Set a function
+        template <class Fun>
+        HTable& fun(string_t name, Fun fun)
         {
-            bool isSame = false;
-
-            const auto top = sq_gettop(vm_);
-            sq_pushobject(vm_, obj_);
-            sq_pushstring(vm_, name, -1);
-            if (SQ_SUCCEEDED(sq_get(vm_, -2)))
-            {
-                isSame = sq_gettype(vm_, -1) == static_cast<SQObjectType>(type);
-            }
-            sq_settop(vm_, top);
-
-            return isSame;
+            newClosure(name, Closure::fun<Fun>, false, fun);
+            return *this;
         }
 
-    private:
+        /// Call a function
+        template <class Result, class... Args>
+        Result call(string_t name, HTable env, Args&&... args)
+        {
+            return HTableImpl::call<Result>(name, env, std::forward<Args>(args)...);
+        }
+
         struct Closure
         {
             template <class Fun>
-            static SQInteger function(HSQUIRRELVM vm)
+            static SQInteger fun(HSQUIRRELVM vm)
             {
                 Fun* fun;
-                auto r = sq_getuserdata(vm, -1, reinterpret_cast<SQUserPointer*>(&fun), nullptr);
-                return function(vm, *fun, MakeIndexSequence<FunctionTraits<Fun>::arity>());
+                sq_getuserdata(vm, -1, reinterpret_cast<SQUserPointer*>(&fun), nullptr);
+                return fetchAndCall(vm, *fun, MakeIndexSequence<FunctionTraits<Fun>::arity>());
             }
 
             template <class Fun, size_t... ArgIndices>
-            static auto function(HSQUIRRELVM vm, Fun fun, IndexSequence<ArgIndices...>)
+            static auto fetchAndCall(HSQUIRRELVM vm, Fun fun, IndexSequence<ArgIndices...>)
                 -> std::enable_if_t<std::is_same<ReturnType<Fun>, void>::value, SQInteger>
             {
-                fun(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices - FunctionTraits<Fun>::arity)...);
+                fun(
+                    cpp(
+                        getValue<SqType<ArgumentType<Fun, ArgIndices>>>(vm, ArgIndices + 2)
+                        )...
+                    );
                 return 0;
             }
 
             template <class Fun, size_t... ArgIndices>
-            static auto function(HSQUIRRELVM vm, Fun fun, IndexSequence<ArgIndices...>)
+            static auto fetchAndCall(HSQUIRRELVM vm, Fun fun, IndexSequence<ArgIndices...>)
                 -> std::enable_if_t<!std::is_same<ReturnType<Fun>, void>::value, SQInteger>
             {
-                pushValue(vm, fun(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices - FunctionTraits<Fun>::arity)...));
+                pushValue(
+                    vm, 
+                    sq(
+                        fun(
+                            cpp(
+                                getValue<SqType<ArgumentType<Fun, ArgIndices>>>(vm, ArgIndices + 2)
+                                )...
+                            )
+                        )
+                    );
                 return 1;
             }
         };
-
-        template <class... FreeVars>
-        void setClosure(const char_t* name, SQFUNCTION closure, FreeVars... freeVars)
-        {
-            const auto top = sq_gettop(vm_);
-            sq_pushobject(vm_, obj_);
-            sq_pushstring(vm_, name, -1);
-            pushAsUserData(vm_, freeVars...);
-            sq_newclosure(vm_, closure, sizeof...(FreeVars));
-            sq_newslot(vm_, -3, SQFalse);
-            sq_settop(vm_, top);
-        }
     };
 }
 

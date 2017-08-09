@@ -70,19 +70,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IncludePath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\include;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\src;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\lib;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\squirrel\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\lib;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\include;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\src;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\lib;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\squirrel\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\lib;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\include;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\src;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\lib;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\squirrel\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\lib;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\include;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\src;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\lib;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\squirrel\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\test\cpputest\lib;D:\Users\progg\Documents\visual studio 2015\Projects\squeeze\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -137,6 +137,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\klass.cpp" />
     <ClCompile Include="src\table.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>

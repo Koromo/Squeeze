@@ -31,7 +31,13 @@
     <ClInclude Include="src\squeeze\sqzvm.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqzvm_impl.h">
+    <ClInclude Include="src\squeeze\sqzclass.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\squeeze\sqztableimpl.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\squeeze\sqzimpl.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

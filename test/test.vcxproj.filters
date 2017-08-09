@@ -13,5 +13,8 @@
     <ClCompile Include="src\table.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\klass.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

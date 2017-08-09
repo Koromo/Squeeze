@@ -4,27 +4,37 @@
 #include "sqztable.h"
 #include "sqzobject.h"
 #include "sqzdef.h"
-#include "../squirrel/squirrel.h"
-#include "../squirrel/sqstdio.h"
+#include "squirrel/squirrel.h"
+#include "squirrel/sqstdio.h"
 
 namespace squeeze
 {
+    class ScriptException : std::runtime_error
+    {
+    public:
+        explicit ScriptException(const std::string& msg = "script exception")
+            : std::runtime_error(msg) {}
+    };
+
     class HScript : public HObject
     {
     public:
-        /// Create a script
+        /// Construct
+        HScript() = default;
+
+        /// ditto
         explicit HScript(HVM vm)
-            : HObject(vm)
         {
+            vm_ = vm;
         }
 
         /// Compile
-        void compileFile(const char_t* path)
+        void compileFile(string_t path)
         {
             release();
-            if (SQ_FAILED(sqstd_loadfile(vm_, path, SQTrue)))
+            if (SQ_FAILED(sqstd_loadfile(vm_, sq(path), SQTrue)))
             {
-                throw std::runtime_error("Failed to compile.");
+                throw ScriptException();
             }
             sq_getstackobj(vm_, -1, &obj_);
             sq_addref(vm_, &obj_);
@@ -36,12 +46,11 @@ namespace squeeze
         {
             if (!sq_isnull(obj_))
             {
-                sq_pushobject(vm_, obj_);
-                sq_pushobject(vm_, env);
-                if (SQ_FAILED(sq_call(vm_, 1, false, true)))
+                pushValue(vm_, obj_, env);
+                if (SQ_FAILED(sq_call(vm_, 1, SQFalse, SQTrue)))
                 {
                     sq_pop(vm_, 2);
-                    throw std::runtime_error("Failed to run script.");
+                    throw ScriptException();
                 }
                 sq_pop(vm_, 2);
             }

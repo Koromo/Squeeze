@@ -2,15 +2,22 @@
 #define SQUEEZE_SQZSTACKOP_H
 
 #include "sqzdef.h"
-#include "../squirrel/squirrel.h"
+#include "squirrel/squirrel.h"
 #include <cstring>
 #include <cassert>
 
 namespace squeeze
 {
+    class StackException : public std::runtime_error
+    {
+    public:
+        explicit StackException(const std::string& msg = "stack exception")
+            : std::runtime_error(msg) {}
+    };
+
     /// Push the values into the stack
     template <class... Ts>
-    void pushValue(HSQUIRRELVM vm, const char_t* s, Ts... values)
+    void pushValue(HSQUIRRELVM vm, const SQChar* s, Ts... values)
     {
         sq_pushstring(vm, s, -1);
         pushValue(vm, values...);
@@ -18,15 +25,15 @@ namespace squeeze
 
     /// ditto
     template <class... Ts>
-    void pushValue(HSQUIRRELVM vm, int n, Ts... values)
+    void pushValue(HSQUIRRELVM vm, SQInteger i, Ts... values)
     {
-        sq_pushinteger(vm, n);
+        sq_pushinteger(vm, i);
         pushValue(vm, values...);
     }
 
     /// ditto
     template <class... Ts>
-    void pushValue(HSQUIRRELVM vm, float f, Ts... values)
+    void pushValue(HSQUIRRELVM vm, SQFloat f, Ts... values)
     {
         sq_pushfloat(vm, f);
         pushValue(vm, values...);
@@ -34,14 +41,29 @@ namespace squeeze
 
     /// ditto
     template <class... Ts>
-    void pushValue(HSQUIRRELVM vm, bool b, Ts... values)
+    void pushValue(HSQUIRRELVM vm, SQBool b, Ts... values)
     {
         sq_pushbool(vm, b);
         pushValue(vm, values...);
     }
 
+    template <class... Ts>
+    void pushValue(HSQUIRRELVM vm, std::nullptr_t, Ts... values)
+    {
+        sq_pushnull(vm);
+        pushValue(vm, values...);
+    }
+
+    /// ditto
+    template <class... Ts>
+    void pushValue(HSQUIRRELVM vm, HSQOBJECT o, Ts... values)
+    {
+        sq_pushobject(vm, o);
+        pushValue(vm, values...);
+    }
+
     /// dito
-    void pushValue(HSQUIRRELVM vm)
+    inline void pushValue(HSQUIRRELVM vm)
     {
     }
 
@@ -51,72 +73,72 @@ namespace squeeze
 
     /// dito
     template <>
-    const char_t* getValue(HSQUIRRELVM vm, int id)
+    inline const SQChar* getValue(HSQUIRRELVM vm, int id)
     {
-        const char_t* c;
+        const SQChar* c;
         const auto sqr = sq_getstring(vm, id, &c);
         if (SQ_FAILED(sqr))
         {
-            throw std::runtime_error("Error at sq_getstring().");
+            throw StackException();
         }
         return c;
     }
 
     /// dito
     template <>
-    int getValue(HSQUIRRELVM vm, int id)
+    inline SQInteger getValue(HSQUIRRELVM vm, int id)
     {
         SQInteger i;
         const auto sqr = sq_getinteger(vm, id, &i);
         if (SQ_FAILED(sqr))
         {
-            throw std::runtime_error("Error at sq_getinteger().");
+            throw StackException();
         }
         return static_cast<int>(i);
     }
 
     /// dito
     template <>
-    float getValue(HSQUIRRELVM vm, int id)
+    inline SQFloat getValue(HSQUIRRELVM vm, int id)
     {
-        float f;
+        SQFloat f;
         const auto sqr = sq_getfloat(vm, id, &f);
         if (SQ_FAILED(sqr))
         {
-            throw std::runtime_error("Error at sq_getfloat().");
+            throw StackException();
         }
         return f;
     }
 
     /// dito
     template <>
-    bool getValue(HSQUIRRELVM vm, int id)
+    inline SQBool getValue(HSQUIRRELVM vm, int id)
     {
         SQBool b;
         const auto sqr = sq_getbool(vm, id, &b);
         if (SQ_FAILED(sqr))
         {
-            throw std::runtime_error("Error at sq_getbool().");
+            throw StackException();
         }
         return !!b;
     }
 
     /// Push the values as user datas
     template <class T, class... Ts>
-    void pushAsUserData(HSQUIRRELVM vm, T& val, Ts... values)
+    void pushUserData(HSQUIRRELVM vm, T& val, Ts... values)
     {
         const auto usrData = sq_newuserdata(vm, sizeof(val));
         std::memcpy(usrData, &val, sizeof(val));
-        pushAsUserData(vm, values...);
+        pushUserData(vm, values...);
     }
 
     template <class T, class... Ts>
-    void pushAsUserData(HSQUIRRELVM vm, T&& val, Ts... values)
+    void pushUserData(HSQUIRRELVM vm, T&& val, Ts... values)
     {
-        pushAsUserData(vm, val, values...);
+        pushUserData(vm, val, values...);
     }
 
-    inline void pushAsUserData(HSQUIRRELVM vm)
+    inline void pushUserData(HSQUIRRELVM vm)
     {
     }
 }

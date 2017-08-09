@@ -2,7 +2,7 @@
 #define SQUEEZE_SQZVM_H
 
 #include "sqzdef.h"
-#include "../squirrel/squirrel.h"
+#include "squirrel/squirrel.h"
 
 namespace squeeze
 {
@@ -15,7 +15,7 @@ namespace squeeze
         HSQUIRRELVM vm_;
 
     public:
-        /// Constructor
+        /// Constructtor
         HVM() = default;
 
         /// Copy
@@ -36,13 +36,13 @@ namespace squeeze
             return vm_;
         }
 
-        /// Open a new VM
+        /// Open VM
         void open(size_t stackSize)
         {
             vm_ = sq_open(stackSize);
         }
 
-        /// Close the VM
+        /// Close VM
         void close()
         {
             sq_close(vm_);

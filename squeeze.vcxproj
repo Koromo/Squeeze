@@ -20,6 +20,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\squeeze\squeeze.h" />
+    <ClInclude Include="src\squeeze\sqztableimpl.h" />
+    <ClInclude Include="src\squeeze\sqzclass.h" />
     <ClInclude Include="src\squeeze\sqzdef.h" />
     <ClInclude Include="src\squeeze\sqzobject.h" />
     <ClInclude Include="src\squeeze\sqzscript.h" />
@@ -27,7 +29,7 @@
     <ClInclude Include="src\squeeze\sqztable.h" />
     <ClInclude Include="src\squeeze\sqztraits.h" />
     <ClInclude Include="src\squeeze\sqzvm.h" />
-    <ClInclude Include="src\squeeze\sqzvm_impl.h" />
+    <ClInclude Include="src\squeeze\sqzimpl.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{9F2CD6D0-CC22-4CC8-B22B-BE604B0B3861}</ProjectGuid>
