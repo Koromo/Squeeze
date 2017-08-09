@@ -81,7 +81,7 @@ namespace squeeze
         auto fun(string_t name, Fun fun, bool isStatic = false)
             -> std::enable_if_t<!std::is_member_function_pointer<Fun>::value, HClass&>
         {
-            newClosure(name, HTable::Closure::fun<Fun>, false, fun);
+            newClosure(name, HTable::Closure::fun<Fun>, isStatic, fun);
             return *this;
         }
 
