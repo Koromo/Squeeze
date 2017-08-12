@@ -15,7 +15,7 @@ TEST(TABLE, SET_VAR)
     HTable t(vm);
 
     int integer = 0;
-    real_t floating = 0;
+    float floating = 0;
     bool boolean = false;
     string_t string = L"A";
 
@@ -24,22 +24,17 @@ TEST(TABLE, SET_VAR)
     t.var(SQZ_T("Bool"), boolean);
     t.var(SQZ_T("String"), string);
 
-    CHECK(t.is(TypeTag::Integer, SQZ_T("Int")));
-    CHECK(t.is(TypeTag::Float, SQZ_T("Float")));
-    CHECK(t.is(TypeTag::Bool, SQZ_T("Bool")));
-    CHECK(t.is(TypeTag::String, SQZ_T("String")));
+    CHECK(t.is(ObjectType::Integer, SQZ_T("Int")));
+    CHECK(t.is(ObjectType::Real, SQZ_T("Float")));
+    CHECK(t.is(ObjectType::Bool, SQZ_T("Bool")));
+    CHECK(t.is(ObjectType::String, SQZ_T("String")));
 
     t.var(SQZ_T("Int"), floating);
-    CHECK(t.is(TypeTag::Float, SQZ_T("Int")));
+    CHECK(t.is(ObjectType::Real, SQZ_T("Int")));
 
-    string = nullptr;
-    t.var(SQZ_T("String"), string);
-    CHECK(t.is(TypeTag::Null, SQZ_T("String")));
+    CHECK_FALSE(t.is(ObjectType::Real, SQZ_T("Bool")));
+    CHECK_FALSE(t.is(ObjectType::Integer, SQZ_T("NotExist")));
 
-    CHECK_FALSE(t.is(TypeTag::Float, SQZ_T("Bool")));
-    CHECK_FALSE(t.is(TypeTag::Integer, SQZ_T("NotExist")));
-
-    t.release();
     vm.close();
 }
 
@@ -53,10 +48,8 @@ TEST(TABLE, SET_TABLE)
     HTable table(vm);
 
     t.table(SQZ_T("Table"), table);
-    CHECK(t.is(TypeTag::Table, SQZ_T("Table")));
+    CHECK(t.is(ObjectType::Table, SQZ_T("Table")));
 
-    table.release();
-    t.release();
     vm.close();
 }
 
@@ -70,8 +63,7 @@ TEST(TABLE, SET_FUN)
     HTable t(vm);
 
     t.fun(SQZ_T("Fun"), &testfun);
-    CHECK(t.is(TypeTag::Closure, SQZ_T("Fun")));
+    CHECK(t.is(ObjectType::HostFunction, SQZ_T("Fun")));
 
-    t.release();
     vm.close();
 }

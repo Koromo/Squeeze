@@ -7,7 +7,7 @@
 
 namespace squeeze
 {
-    /// The Object handle
+    /** The Object handle */
     class HObject
     {
     protected:
@@ -15,7 +15,7 @@ namespace squeeze
         HSQOBJECT obj_;
 
     public:
-        /// Construct
+        /** Construct */
         HObject()
             : vm_()
             , obj_()
@@ -23,7 +23,7 @@ namespace squeeze
             sq_resetobject(&obj_);
         }
 
-        /// Copy
+        /** Copy */
         HObject(const HObject& that)
             : vm_()
             , obj_()
@@ -32,26 +32,25 @@ namespace squeeze
             *this = that;
         }
 
-        /// Move
+        /** Move */
         HObject(HObject&& that)
             : vm_()
             , obj_()
         {
             sq_resetobject(&obj_);
-            *this = that;
+            *this = std::move(that);
         }
 
-        /// Destruct
+        /** Destruct */
         virtual ~HObject()
         {
             release();
         }
 
-        /// Copy
+        /** Copy */
         HObject& operator=(const HObject& that)
         {
             release();
-
             vm_ = that.vm_;
             obj_ = that.obj_;
             if (!sq_isnull(obj_))
@@ -61,32 +60,36 @@ namespace squeeze
             return *this;
         }
 
-        /// Move
+        /** Move */
         HObject& operator=(HObject&& that)
         {
             vm_ = that.vm_;
             obj_ = that.obj_;
+            if (!sq_isnull(obj_))
+            {
+                sq_addref(vm_, &obj_);
+            }
             that.release();
             return *this;
         }
 
-        /// Cast to HSQOBJECT
+        /** Cast to HSQOBJECT */
         operator HSQOBJECT()
         {
             return obj_;
         }
 
-        /// Return the VM
+        /** Return the VM */
         HVM vm()
         {
             return vm_;
         }
 
-        /// Release the object handle
+        /** Release the handled object */
         void release()
         {
             /// TODO: VM release hook
-            if (!sq_isnull(obj_))
+            if (!sq_isnull(obj_) && vm_.valid())
             {
                 sq_release(vm_, &obj_);
                 sq_resetobject(&obj_);

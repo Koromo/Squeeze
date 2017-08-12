@@ -2,71 +2,91 @@
 #define SQUEEZE_SQZDEF_H
 
 #include "squirrel/squirrel.h"
+#include <string>
 #include <tuple>
-#include <exception>
-#include <stdexcept>
+#include <type_traits>
 
+/** Replace a string literal to the used character set. */
 #define SQZ_T(s) _SC(s)
 
 namespace squeeze
 {
-    /// Real number type and string type.
-#ifdef SQZ_DOUBLE
-    using real_t = double;
-#else
-    using real_t = float;
-#endif
+    /** The string type */
+    using string_t = std::basic_string<SQChar>;
 
-#ifdef _UNICODE
-    using string_t = const wchar_t*;
-#else
-    using string_t = const char*;
-#endif
-
-    /// Type tags
-    enum class TypeTag
+    /** Object types */
+    enum class ObjectType
     {
         Null = OT_NULL,
         Integer = OT_INTEGER,
-        Float = OT_FLOAT,
+        Real = OT_FLOAT,
         Bool = OT_BOOL,
         String = OT_STRING,
         Table = OT_TABLE,
-        Closure = OT_NATIVECLOSURE,
-        Class = OT_CLASS
+        Class = OT_CLASS,
+
+        /// function defined in Squirrel
+        Function = OT_CLOSURE, 
+
+        /// function defined in Cpp
+        HostFunction = OT_NATIVECLOSURE, 
     };
 
-    template <class inCpp> struct TypeInSquirrel { using Type = inCpp; };
-    template <class inSq> struct TypeInCpp { using Type = inSq; };
-
-    template <> struct TypeInSquirrel<int> { using Type = SQInteger; };
-    template <> struct TypeInCpp<SQInteger> { using Type = int; };
-
-    template <> struct TypeInSquirrel<real_t> { using Type = SQFloat; };
-    template <> struct TypeInCpp<SQFloat> { using Type = real_t; };
-
-    template <> struct TypeInSquirrel<bool> { using Type = SQBool; };
-    template <> struct TypeInCpp<SQBool> { using Type = bool; };
-
-    template <> struct TypeInSquirrel<string_t> { using Type = const SQChar*; };
-    template <> struct TypeInCpp<const SQChar*> { using Type = string_t; };
-
-    template <class inCpp>
-    using SqType = typename TypeInSquirrel<inCpp>::Type;
-
-    template <class inSq>
-    using CppType = typename TypeInCpp<inSq>::Type;
-
-    template <class T, class U = SqType<T>>
-    U sq(T val)
+    /** The exception of stack operations */
+    class StackOperationFailed : public std::runtime_error
     {
-        return static_cast<U>(val);
+    public:
+        explicit StackOperationFailed(const std::string& msg = "stack operations exception")
+            : std::runtime_error(msg) {}
+    };
+
+    /** The exception of object handlings */
+    class ObjectHandlingFailed : public std::runtime_error
+    {
+    public:
+        explicit ObjectHandlingFailed(const std::string& msg = "object handlings exception")
+            : std::runtime_error(msg) {}
+    };
+
+    /** The exception of calls */
+    class CallFailed : public std::runtime_error
+    {
+    public:
+        explicit CallFailed(const std::string& msg = "calls exception")
+            : std::runtime_error(msg) {}
+    };
+
+    /** The script exception */
+    class ScriptException : public std::runtime_error
+    {
+    public:
+        explicit ScriptException(const std::string& msg = "script exception")
+            : std::runtime_error(msg) {}
+    };
+
+    /** Convert types of Cpp to the Squirrel types */
+    template <class Cpp> struct ToSquirrel;
+    template <> struct ToSquirrel<int> { using Type = SQInteger; };
+    template <> struct ToSquirrel<size_t> { using Type = SQInteger; };
+    template <> struct ToSquirrel<double> { using Type = SQFloat; };
+    template <> struct ToSquirrel<float> { using Type = SQFloat; };
+    template <> struct ToSquirrel<bool> { using Type = SQBool; };
+    template <> struct ToSquirrel<const SQChar*> { using Type = const SQChar*; };
+    template <> struct ToSquirrel<string_t> { using Type = const SQChar*; };
+
+    template <class Cpp>
+    using SqType = typename ToSquirrel<std::remove_const_t<std::remove_reference_t<Cpp>>>::Type;
+
+    /** Convert the value of Cpp to a Squirrel usable value. */
+    template <class T>
+    auto sq(T val) -> SqType<T>
+    {
+        return static_cast<SqType<T>>(val);
     }
 
-    template <class T, class U = CppType<T>>
-    U cpp(T val)
+    inline const string_t& sq(const string_t& val)
     {
-        return static_cast<U>(val);
+        return val;
     }
 }
 

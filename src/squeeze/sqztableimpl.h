@@ -6,20 +6,24 @@
 #include "sqzdef.h"
 #include "squirrel/squirrel.h"
 #include <type_traits>
+#include <utility>
 
 namespace squeeze
 {
-    /// The basic implementation of tables
+    /** The basic implementation of table object handlers */
     class HTableImpl : public HObject
     {
     public:
-        /// Check the value type
-        bool is(TypeTag type, string_t name)
+        /**
+        Whether the object type mapped by 'key' is same to 'type' or not. 
+        This function returns false if an object mapped by 'key' is not exist.
+        */
+        bool is(ObjectType type, const string_t& key)
         {
             bool isSame = false;
 
             const auto top = sq_gettop(vm_);
-            pushValue(vm_, obj_, sq(name));
+            pushValue(vm_, obj_, key);
             if (SQ_SUCCEEDED(sq_get(vm_, -2)))
             {
                 isSame = sq_gettype(vm_, -1) == static_cast<SQObjectType>(type);
@@ -31,60 +35,78 @@ namespace squeeze
 
     protected:
         template <class T>
-        void newSlot(string_t name, T val, bool bstatic)
+        void newSlot(const string_t& key, T val, bool bstatic)
         {
             const auto top = sq_gettop(vm_);
-            pushValue(vm_, obj_, sq(name), sq(val));
-            sq_newslot(vm_, -3, sq(bstatic));
+            pushValue(vm_, obj_, key, sq(val));
+            if (SQ_FAILED(sq_newslot(vm_, -3, sq(bstatic))))
+            {
+                sq_settop(vm_, top);
+                failed<ObjectHandlingFailed>(vm_, "sq_newslot() failed.");
+            }
             sq_settop(vm_, top);
         }
 
         template <class... FreeVars>
-        void newClosure(string_t name, SQFUNCTION closure, bool bstatic, FreeVars... freeVars)
+        void newClosure(const string_t& key, SQFUNCTION closure, bool bstatic, FreeVars&&... freeVars)
         {
             const auto top = sq_gettop(vm_);
-            pushValue(vm_, obj_, sq(name));
-            pushUserData(vm_, freeVars...);
+            pushValue(vm_, obj_, key);
+            pushUserData(vm_, std::forward<FreeVars>(freeVars)...);
             sq_newclosure(vm_, closure, sizeof...(FreeVars));
-            sq_newslot(vm_, -3, sq(bstatic));
+            if (SQ_FAILED(sq_newslot(vm_, -3, sq(bstatic))))
+            {
+                sq_settop(vm_, top);
+                failed<ObjectHandlingFailed>(vm_, "sq_newclosure() failed.");
+            }
             sq_settop(vm_, top);
         }
 
-        template <class Result, class... Args>
-        auto call(string_t name, HSQOBJECT env, Args&&... args)
-            -> std::enable_if_t<std::is_same<Result, void>::value, void>
+        template <class Return, class... Args>
+        auto call(const string_t& key, HSQOBJECT env, Args&&... args)
+            -> std::enable_if_t<std::is_void<Return>::value, void>
         {
             const auto top = sq_gettop(vm_);
-            if (!prepareCall(name, env, std::forward<Args>(args)...))
+            if (!prepareCall(key, env, std::forward<Args>(args)...))
             {
                 sq_settop(vm_, top);
-                throw std::runtime_error("Failed to call function.");
+                failed<CallFailed>(vm_, "sq_call() failed.");
             }
-            sq_call(vm_, sizeof...(Args) + 1, SQFalse, SQTrue);
-            sq_settop(vm_);
+            if (SQ_FAILED(sq_call(vm_, sizeof...(Args)+1, SQFalse, SQTrue)))
+            {
+                sq_settop(vm_, top);
+                failed<CallFailed>(vm_, "sq_call() failed.");
+            }
+            sq_settop(vm_, top);
         }
 
-        template <class Result, class... Args>
-        auto call(string_t name, HSQOBJECT env, Args&&... args)
-            -> std::enable_if_t<!std::is_same<Result, void>::value, Result>
+        template <class Return, class... Args>
+        auto call(const string_t& key, HSQOBJECT env, Args&&... args)
+            -> std::enable_if_t<!std::is_void<Return>::value, Return>
         {
             const auto top = sq_gettop(vm_);
-            if (!prepareCall(name, env, std::forward<Args>(args)...))
+            if (!prepareCall(key, env, std::forward<Args>(args)...))
             {
                 sq_settop(vm_, top);
-                throw std::runtime_error("Failed to call function.");
+                failed<CallFailed>(vm_, "sq_call() failed.");
             }
-            sq_call(vm_, sizeof...(Args) + 1, SQTrue, SQTrue);
-            const auto ret = getValue<SqType<Result>>(vm_, -1);
-            sq_settop(vm_);
-            return cpp(ret);
+            if (SQ_FAILED(sq_call(vm_, sizeof...(Args)+1, SQTrue, SQTrue)))
+            {
+                sq_settop(vm_, top);
+                failed<CallFailed>(vm_, "sq_call() failed.");
+            }
+
+            const auto ret = getValue<SqType<Return>>(vm_, -1);
+            sq_settop(vm_, top);
+
+            return static_cast<Return>(ret);
         }
 
     private:
         template <class... Args>
-        bool prepareCall(string_t name, HSQOBJECT env, Args&&... args)
+        bool prepareCall(const string_t& key, HSQOBJECT env, Args&&... args)
         {
-            pushValue(vm_, obj_, sq(name));
+            pushValue(vm_, obj_, sq(key));
             if (SQ_FAILED(sq_get(vm_, -2)))
             {
                 return false;

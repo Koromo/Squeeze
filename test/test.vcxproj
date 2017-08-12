@@ -138,6 +138,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\klass.cpp" />
+    <ClCompile Include="src\script.cpp" />
     <ClCompile Include="src\table.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>

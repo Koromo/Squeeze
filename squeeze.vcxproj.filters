@@ -13,9 +13,6 @@
     <ClInclude Include="src\squeeze\sqzstackop.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqztraits.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="src\squeeze\sqzdef.h">
       <Filter>src</Filter>
     </ClInclude>
@@ -38,6 +35,9 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\squeeze\sqzimpl.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\squeeze\sqzutil.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

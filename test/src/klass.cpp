@@ -10,7 +10,7 @@ TEST_GROUP(CLASS)
 class Foo
 {
 public:
-    Foo(int, real_t) {}
+    Foo(int, float) {}
     int add(int, int) { return 1; }
 };
 
@@ -20,12 +20,11 @@ TEST(CLASS, SET_FUN)
     vm.open(1024);
 
     HClass<Foo> c(vm);
-    c.ctor<int, real_t>();
+    c.ctor<int, float>();
     c.fun(SQZ_T("add"), &Foo::add);
 
-    CHECK(c.is(TypeTag::Closure, SQZ_T("constructor")));
-    CHECK(c.is(TypeTag::Closure, SQZ_T("add")));
+    CHECK(c.is(ObjectType::HostFunction, SQZ_T("constructor")));
+    CHECK(c.is(ObjectType::HostFunction, SQZ_T("add")));
 
-    c.release();
     vm.close();
 }

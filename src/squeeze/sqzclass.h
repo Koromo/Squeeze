@@ -5,25 +5,24 @@
 #include "sqztableimpl.h"
 #include "sqzstackop.h"
 #include "sqzdef.h"
-#include "sqztraits.h"
+#include "sqzutil.h"
 #include "squirrel/squirrel.h"
 #include <type_traits>
 
 namespace squeeze
 {
-    /// The Class handle
+    /** The Class object handle */
     template <class Class>
     class HClass : public HTableImpl
     {
     public:
-        /// Construct
+        /** Construct */
         HClass() = default;
 
-        /// Create a class
+        /** Create a class object */
         explicit HClass(HVM vm)
         {
             vm_ = vm;
-
             const auto top = sq_gettop(vm_);
             sq_newclass(vm_, SQFalse);
             sq_getstackobj(vm_, -1, &obj_);
@@ -31,12 +30,11 @@ namespace squeeze
             sq_settop(vm_, top);
         }
 
-        /// ditto
+        /** Create a class object with extend 'base' class */
         template <class U>
         explicit HClass(HClass<U> base)
         {
             vm_ = base.vm();
-
             const auto top = sq_gettop(vm_);
             pushValue(vm_, base);
             sq_newclass(vm_, SQTrue);
@@ -45,7 +43,7 @@ namespace squeeze
             sq_settop(vm_, top);
         }
 
-        /// Define the constructor
+        /** Add constructor */
         template <class... Args>
         HClass& ctor()
         {
@@ -53,35 +51,34 @@ namespace squeeze
             return *this;
         }
 
-        /// Define a variable
+        /** Add a member as a variable */
         template <class T>
-        HClass& var(string_t name, T val, bool isStatic = false)
+        HClass& var(const string_t& name, T val, bool isStatic = false)
         {
-            newSlot(name, val, sq(isStatic));
+            newSlot(name, val, isStatic);
             return *this;
         }
 
-        /// Define a table
-        HClass& table(string_t name, HTable t, bool isStatic = false)
+        /** Add a member as a table */
+        HClass& table(const string_t& name, HTable table, bool isStatic = false)
         {
-            newSlot(name, t, sq(isStatic));
+            newSlot(name, table, isStatic);
             return *this;
         }
 
-        /// Define a function
-        template <class Fun>
-        auto fun(string_t name, Fun fun)
-            -> std::enable_if_t<std::is_member_function_pointer<Fun>::value, HClass&>
+        /** Add a member as a non-static function */
+        template <class Return, class... Args>
+        HClass& fun(const string_t& name, Return(Class::*fun)(Args...))
         {
-            newClosure(name, Closure::fun<Fun>, false, fun);
+            newClosure(name, Closure::fun<decltype(fun)>, false, fun);
             return *this;
         }
 
-        template <class Fun>
-        auto fun(string_t name, Fun fun, bool isStatic = false)
-            -> std::enable_if_t<!std::is_member_function_pointer<Fun>::value, HClass&>
+        /** Add a member as a static function */
+        template <class Fun, class = std::enable_if_t<!std::is_member_function_pointer<Fun>::value>>
+        HClass& fun(const string_t& name, Fun fun)
         {
-            newClosure(name, HTable::Closure::fun<Fun>, isStatic, fun);
+            newClosure(name, Closure::fun<Fun>, true, fun);
             return *this;
         }
 
@@ -102,8 +99,18 @@ namespace squeeze
             {
                 using A = std::tuple<Args...>;
                 return new Class(
-                    cpp(
-                        getValue<std::tuple_element_t<ArgIndices, A>>(vm, ArgIndices + 2)
+                        (
+                            static_cast
+                            <
+                                std::tuple_element_t<ArgIndices, A>
+                            >
+                            (
+                                getValue
+                                <
+                                    SqType<std::tuple_element_t<ArgIndices, A>>
+                                >
+                                (vm, ArgIndices + 2)
+                            )
                         )...
                     );
             }
@@ -131,34 +138,50 @@ namespace squeeze
 
             template <class Fun, size_t... ArgIndices>
             static auto fetchAndCall(HSQUIRRELVM vm, Class* inst, Fun fun, IndexSequence<ArgIndices...>)
-                -> std::enable_if_t<std::is_same<ReturnType<Fun>, void>::value, SQInteger>
+                -> std::enable_if_t<std::is_void<ReturnType<Fun>>::value, SQInteger>
             {
                 (inst->*fun)(
-                    cpp(
-                        getValue<SqType<ArgumentType<Fun, ArgIndices>>>(vm, ArgIndices + 2)
-                        )...
-                    );
+                    (
+                        static_cast
+                        <
+                            ArgumentType<Fun, ArgIndices>
+                        >
+                        (
+                            getValue
+                            <
+                                SqType<ArgumentType<Fun, ArgIndices>>
+                            >(vm, ArgIndices + 2)
+                        )
+                    )...);
                 return 0;
             }
 
             template <class Fun, size_t... ArgIndices>
             static auto fetchAndCall(HSQUIRRELVM vm, Class* inst, Fun fun, IndexSequence<ArgIndices...>)
-                -> std::enable_if_t<!std::is_same<ReturnType<Fun>, void>::value, SQInteger>
+                -> std::enable_if_t<!std::is_void<ReturnType<Fun>>::value, SQInteger>
             {
-                pushValue(
-                    vm,
-                    sq(
-                        (inst->*fun)(
-                            cpp(
-                                getValue<SqType<ArgumentType<Fun, ArgIndices>>>(vm, ArgIndices + 2)
-                                )...
+                ReturnType<Fun> ret =
+                    (inst->*fun)(
+                        (
+                            static_cast
+                            <
+                                ArgumentType<Fun, ArgIndices>
+                            >
+                            (
+                                getValue
+                                <
+                                    SqType<ArgumentType<Fun, ArgIndices>>
+                                >(vm, ArgIndices + 2)
                             )
-                        )
-                    );
+                        )...);
+
+                pushValue(vm, sq(ret));
                 return 1;
             }
         };
     };
+
+    template <class T> struct ToSquirrel<HClass<T>> { using Type = HSQOBJECT; };
 }
 
 #endif

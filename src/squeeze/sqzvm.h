@@ -3,55 +3,114 @@
 
 #include "sqzdef.h"
 #include "squirrel/squirrel.h"
+#include "squirrel/sqstdio.h"
+#include "squirrel/sqstdblob.h"
+#include "squirrel/sqstdmath.h"
+#include "squirrel/sqstdsystem.h"
+#include "squirrel/sqstdstring.h"
+#include <memory>
 
 namespace squeeze
 {
     class HTable;
 
-    /// The VM
+    /** The VM handler */
     class HVM
     {
     private:
+        std::shared_ptr<bool> valid_;
         HSQUIRRELVM vm_;
 
     public:
-        /// Constructtor
-        HVM() = default;
+        /** Construct */
+        HVM()
+            : valid_(new bool(false))
+            , vm_()
+        {
+        }
 
-        /// Copy
+        /** Copy */
         HVM(const HVM&) = default;
 
-        /// Mode
+        /** Move */
         HVM(HVM&&) = default;
 
-        /// Copy
+        /** Copy */
         HVM& operator=(const HVM&) = default;
 
-        /// Mode
+        /** Move */
         HVM& operator=(HVM&&) = default;
 
-        /// Cast to HSQUIRRELVM
+        /** Cast to HSQUIRRELVM */
         operator HSQUIRRELVM()
         {
             return vm_;
         }
 
-        /// Open VM
+        /** Whether the handled VM is valid or not */
+        bool valid() const
+        {
+            return *valid_;
+        }
+
+        /** Register the std input/output library */
+        void iolib()
+        {
+            sq_pushroottable(vm_);
+            sqstd_register_iolib(vm_);
+            sq_poptop(vm_);
+        }
+
+        /** Register the std blob library */
+        void bloblib()
+        {
+            sq_pushroottable(vm_);
+            sqstd_register_bloblib(vm_);
+            sq_poptop(vm_);
+        }
+
+        /** Register the std math library */
+        void mathlib()
+        {
+            sq_pushroottable(vm_);
+            sqstd_register_mathlib(vm_);
+            sq_poptop(vm_);
+        }
+
+        /** Register the std system library */
+        void systemlib()
+        {
+            sq_pushroottable(vm_);
+            sqstd_register_systemlib(vm_);
+            sq_poptop(vm_);
+        }
+
+        /** Register the std string library */
+        void stringlib()
+        {
+            sq_pushroottable(vm_);
+            sqstd_register_stringlib(vm_);
+            sq_poptop(vm_);
+        }
+
+        /** Open a new VM */
         void open(size_t stackSize)
         {
             vm_ = sq_open(stackSize);
+            *valid_ = true;
         }
 
-        /// Close VM
+        /** Close the handled VM */
         void close()
         {
             sq_close(vm_);
+            *valid_ = false;
         }
 
-        /// Return the current root table
+        /** Return the root table of the handled VM */
         HTable rootTable();
 
-        /// Set root table
+        /** Set a new root table to the handled VM */
         void setRootTable(HTable root);
     };
 }
