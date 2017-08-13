@@ -56,7 +56,7 @@ namespace squeeze
 
         /** Add a new slot as a variable. */
         template <class T>
-        HTable& var(const string_t& key, T val)
+        HTable& var(const string_t& key, const T& val)
         {
             newSlot(key, val, false);
             return *this;
@@ -83,9 +83,9 @@ namespace squeeze
 
         /** Call a function mapped by 'key'. */
         template <class Return, class... Args>
-        Return call(const string_t& key, HTable env, Args&&... args)
+        Return call(const string_t& key, HTable env, const Args&... args)
         {
-            return HTableImpl::call<Return>(key, env, std::forward<Args>(args)...);
+            return HTableImpl::call<Return>(key, env, args...);
         }
 
         // Referenced from HTable class and HClass class
@@ -103,11 +103,7 @@ namespace squeeze
             static auto fetchAndCall(HSQUIRRELVM vm, Fun fun, IndexSequence<ArgIndices...>)
                 -> std::enable_if_t<std::is_void<ReturnType<Fun>>::value, SQInteger>
             {
-                fun((
-                    static_cast<
-                        ArgumentType<Fun, ArgIndices>
-                    >(getValue<SqType<ArgumentType<Fun, ArgIndices>>>(vm, ArgIndices + 2))
-                    )...);
+                fun(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices + 2)...);
                 return 0;
             }
 
@@ -115,20 +111,12 @@ namespace squeeze
             static auto fetchAndCall(HSQUIRRELVM vm, Fun fun, IndexSequence<ArgIndices...>)
                 -> std::enable_if_t<!std::is_void<ReturnType<Fun>>::value, SQInteger>
             {
-                ReturnType<Fun> ret =
-                    fun((
-                        static_cast<
-                            ArgumentType<Fun, ArgIndices>
-                        >(getValue<SqType<ArgumentType<Fun, ArgIndices>>>(vm, ArgIndices + 2))
-                        )...);
-
-                pushValue(vm, sq(ret));
+                const auto ret = fun(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices + 2)...);
+                pushValue(vm, ret);
                 return 1;
             }
         };
     };
-
-    template <> struct ToSquirrel<HTable> { using Type = HSQOBJECT; };
 }
 
 #endif

@@ -28,7 +28,7 @@ namespace squeeze
         /// function defined in Squirrel
         Function = OT_CLOSURE, 
 
-        /// function defined in Cpp
+        /// function defined in C++
         HostFunction = OT_NATIVECLOSURE, 
     };
 
@@ -64,30 +64,20 @@ namespace squeeze
             : std::runtime_error(msg) {}
     };
 
-    /** Convert types of Cpp to the Squirrel types */
-    template <class Cpp> struct ToSquirrel;
-    template <> struct ToSquirrel<int> { using Type = SQInteger; };
-    template <> struct ToSquirrel<size_t> { using Type = SQInteger; };
-    template <> struct ToSquirrel<double> { using Type = SQFloat; };
-    template <> struct ToSquirrel<float> { using Type = SQFloat; };
-    template <> struct ToSquirrel<bool> { using Type = SQBool; };
-    template <> struct ToSquirrel<const SQChar*> { using Type = const SQChar*; };
-    template <> struct ToSquirrel<string_t> { using Type = const SQChar*; };
+    template <class T, class U = void, class X = std::remove_cv_t<std::remove_reference_t<T>>>
+    using EnableInteger = std::enable_if_t<std::is_integral<X>::value && !std::is_same<X, bool>::value, U>;
 
-    template <class Cpp>
-    using SqType = typename ToSquirrel<std::remove_const_t<std::remove_reference_t<Cpp>>>::Type;
+    template <class T, class U = void, class X = std::remove_cv_t<std::remove_reference_t<T>>>
+    using EnableBool = std::enable_if_t<std::is_same<X, bool>::value, U>;
 
-    /** Convert the value of Cpp to a Squirrel usable value. */
-    template <class T>
-    auto sq(T val) -> SqType<T>
-    {
-        return static_cast<SqType<T>>(val);
-    }
+    template <class T, class U = void, class X = std::remove_cv_t<std::remove_reference_t<T>>>
+    using EnableReal = std::enable_if_t<std::is_floating_point<X>::value, U>;
 
-    inline const string_t& sq(const string_t& val)
-    {
-        return val;
-    }
+    template <class T, class U = void, class X = std::remove_cv_t<std::remove_reference_t<T>>>
+    using EnableChars = std::enable_if_t<std::is_same<X, const SQChar*>::value, U>;
+
+    template <class T, class U = void, class X = std::remove_cv_t<std::remove_reference_t<T>>>
+    using EnableString = std::enable_if_t<std::is_same<X, string_t>::value, U>;
 }
 
 #endif

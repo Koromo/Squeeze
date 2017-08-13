@@ -53,7 +53,7 @@ namespace squeeze
 
         /** Add a member as a variable */
         template <class T>
-        HClass& var(const string_t& name, T val, bool isStatic = false)
+        HClass& var(const string_t& name, const T& val, bool isStatic = false)
         {
             newSlot(name, val, isStatic);
             return *this;
@@ -98,21 +98,7 @@ namespace squeeze
             static Class* instantiate(HSQUIRRELVM vm, IndexSequence<ArgIndices...>)
             {
                 using A = std::tuple<Args...>;
-                return new Class(
-                        (
-                            static_cast
-                            <
-                                std::tuple_element_t<ArgIndices, A>
-                            >
-                            (
-                                getValue
-                                <
-                                    SqType<std::tuple_element_t<ArgIndices, A>>
-                                >
-                                (vm, ArgIndices + 2)
-                            )
-                        )...
-                    );
+                return new Class(getValue<std::tuple_element_t<ArgIndices, A>>(vm, ArgIndices + 2)...);
             }
 
             static SQInteger releaseHook(SQUserPointer p, SQInteger)
@@ -140,19 +126,7 @@ namespace squeeze
             static auto fetchAndCall(HSQUIRRELVM vm, Class* inst, Fun fun, IndexSequence<ArgIndices...>)
                 -> std::enable_if_t<std::is_void<ReturnType<Fun>>::value, SQInteger>
             {
-                (inst->*fun)(
-                    (
-                        static_cast
-                        <
-                            ArgumentType<Fun, ArgIndices>
-                        >
-                        (
-                            getValue
-                            <
-                                SqType<ArgumentType<Fun, ArgIndices>>
-                            >(vm, ArgIndices + 2)
-                        )
-                    )...);
+                (inst->*fun)(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices + 2)...);
                 return 0;
             }
 
@@ -160,28 +134,12 @@ namespace squeeze
             static auto fetchAndCall(HSQUIRRELVM vm, Class* inst, Fun fun, IndexSequence<ArgIndices...>)
                 -> std::enable_if_t<!std::is_void<ReturnType<Fun>>::value, SQInteger>
             {
-                ReturnType<Fun> ret =
-                    (inst->*fun)(
-                        (
-                            static_cast
-                            <
-                                ArgumentType<Fun, ArgIndices>
-                            >
-                            (
-                                getValue
-                                <
-                                    SqType<ArgumentType<Fun, ArgIndices>>
-                                >(vm, ArgIndices + 2)
-                            )
-                        )...);
-
-                pushValue(vm, sq(ret));
+                const auto ret = (inst->*fun)(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices + 2)...);
+                pushValue(vm, ret);
                 return 1;
             }
         };
     };
-
-    template <class T> struct ToSquirrel<HClass<T>> { using Type = HSQOBJECT; };
 }
 
 #endif

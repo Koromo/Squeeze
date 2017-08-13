@@ -4,63 +4,67 @@
 #include "sqzdef.h"
 #include "sqzutil.h"
 #include "squirrel/squirrel.h"
-#include <stdexcept>
-#include <string>
+#include <type_traits>
 #include <cstring>
 
 namespace squeeze
 {
     /** Push the values into the stack. */
-    template <class... Ts>
-    void pushValue(HSQUIRRELVM vm, const SQChar* val, Ts... values)
+    template <class T, class... Ts>
+    EnableInteger<T> pushValue(HSQUIRRELVM vm, T val, Ts... values)
+    {
+        const auto v = static_cast<SQInteger>(val);
+        sq_pushinteger(vm, v);
+        pushValue(vm, values...);
+    }
+
+    /// ditto
+    template <class T, class... Ts>
+    EnableReal<T> pushValue(HSQUIRRELVM vm, T val, Ts... values)
+    {
+        const auto v = static_cast<SQFloat>(val);
+        sq_pushfloat(vm, v);
+        pushValue(vm, values...);
+    }
+
+    /// ditto
+    template <class T, class... Ts>
+    EnableBool<T> pushValue(HSQUIRRELVM vm, T val, Ts... values)
+    {
+        const SQBool v = val;
+        sq_pushbool(vm, v);
+        pushValue(vm, values...);
+    }
+
+    /// ditto
+    template <class T, class... Ts>
+    EnableChars<T> pushValue(HSQUIRRELVM vm, T val, Ts... values)
     {
         sq_pushstring(vm, val, -1);
         pushValue(vm, values...);
     }
 
     /// ditto
-    template <class... Ts>
-    void pushValue(HSQUIRRELVM vm, const string_t& s, Ts... values)
+    template <class T, class... Ts>
+    EnableString<T> pushValue(HSQUIRRELVM vm, const T& val, Ts... values)
     {
-        sq_pushstring(vm, s.c_str(), s.length());
+        sq_pushstring(vm, val.c_str(), val.length());
         pushValue(vm, values...);
     }
 
     /// ditto
-    template <class... Ts>
-    void pushValue(HSQUIRRELVM vm, SQInteger val, Ts... values)
-    {
-        sq_pushinteger(vm, val);
-        pushValue(vm, values...);
-    }
-
-    /// ditto
-    template <class... Ts>
-    void pushValue(HSQUIRRELVM vm, SQFloat val, Ts... values)
-    {
-        sq_pushfloat(vm, val);
-        pushValue(vm, values...);
-    }
-
-    /// ditto
-    template <class... Ts>
-    void pushValue(HSQUIRRELVM vm, SQBool val, Ts... values)
-    {
-        sq_pushbool(vm, val);
-        pushValue(vm, values...);
-    }
-
-    /// ditto
-    template <class... Ts>
-    void pushValue(HSQUIRRELVM vm, std::nullptr_t, Ts... values)
+    template <class T, class... Ts>
+    auto pushValue(HSQUIRRELVM vm, T val, Ts... values)
+        -> std::enable_if_t<std::is_same<T, std::nullptr_t>::value>
     {
         sq_pushnull(vm);
         pushValue(vm, values...);
     }
 
     /// ditto
-    template <class... Ts>
-    void pushValue(HSQUIRRELVM vm, HSQOBJECT val, Ts... values)
+    template <class T, class... Ts>
+    auto pushValue(HSQUIRRELVM vm, T val, Ts... values)
+        -> std::enable_if_t<std::is_convertible<T, HSQOBJECT>::value>
     {
         sq_pushobject(vm, val);
         pushValue(vm, values...);
@@ -72,32 +76,7 @@ namespace squeeze
     }
 
     /** Get a value from the stack */
-    template <class T>
-    T getValue(HSQUIRRELVM vm, int id);
-
-    /// ditto
-    template <>
-    inline const SQChar* getValue(HSQUIRRELVM vm, int id)
-    {
-        const SQChar* val;
-        const auto sqr = sq_getstring(vm, id, &val);
-        if (SQ_FAILED(sqr))
-        {
-            failed<StackOperationFailed>(vm, "sq_getstring() failed.");
-        }
-        return val;
-    }
-
-    /// ditto
-    template <>
-    inline string_t getValue(HSQUIRRELVM vm, int id)
-    {
-        return getValue<const SQChar*>(vm, id);
-    }
-
-    /// ditto
-    template <>
-    inline SQInteger getValue(HSQUIRRELVM vm, int id)
+    inline SQInteger getInteger(HSQUIRRELVM vm, int id)
     {
         SQInteger val;
         const auto sqr = sq_getinteger(vm, id, &val);
@@ -109,8 +88,7 @@ namespace squeeze
     }
 
     /// ditto
-    template <>
-    inline SQFloat getValue(HSQUIRRELVM vm, int id)
+    inline SQFloat getFloat(HSQUIRRELVM vm, int id)
     {
         SQFloat val;
         const auto sqr = sq_getfloat(vm, id, &val);
@@ -122,8 +100,7 @@ namespace squeeze
     }
 
     /// ditto
-    template <>
-    inline SQBool getValue(HSQUIRRELVM vm, int id)
+    inline SQBool getBool(HSQUIRRELVM vm, int id)
     {
         SQBool val;
         const auto sqr = sq_getbool(vm, id, &val);
@@ -132,6 +109,78 @@ namespace squeeze
             failed<StackOperationFailed>(vm, "sq_getbool() failed.");
         }
         return val;
+    }
+
+    /// ditto
+    inline const SQChar* getString(HSQUIRRELVM vm, int id)
+    {
+        const SQChar* val;
+        const auto sqr = sq_getstring(vm, id, &val);
+        if (SQ_FAILED(sqr))
+        {
+            failed<StackOperationFailed>(vm, "sq_getstring() failed.");
+        }
+        return val;
+    }
+
+    /// ditto
+    template <class T>
+    EnableInteger<T, T> getValue(HSQUIRRELVM vm, int id)
+    {
+        const auto type = sq_gettype(vm, id);
+        switch (type)
+        {
+        case OT_INTEGER: return static_cast<T>(getInteger(vm, id));
+        case OT_FLOAT: return static_cast<T>(getFloat(vm, id));
+        case OT_BOOL: return static_cast<T>(getBool(vm, id));
+        default: failed<StackOperationFailed>(vm, "A type mismatching in getValue()");
+        }
+    }
+
+    /// ditto
+    template <class T>
+    EnableReal<T, T> getValue(HSQUIRRELVM vm, int id)
+    {
+        const auto type = sq_gettype(vm, id);
+        switch (type)
+        {
+        case OT_INTEGER: return static_cast<T>(getInteger(vm, id));
+        case OT_FLOAT: return static_cast<T>(getFloat(vm, id));
+        case OT_BOOL: return static_cast<T>(getBool(vm, id));
+        default: failed<StackOperationFailed>(vm, "A type mismatching in getValue()");
+        }
+    }
+
+    /// ditto
+    template <class T>
+    EnableBool<T, T> getValue(HSQUIRRELVM vm, int id)
+    {
+        const auto type = sq_gettype(vm, id);
+        switch (type)
+        {
+        case OT_INTEGER: return static_cast<T>(getInteger(vm, id));
+        case OT_BOOL: return static_cast<T>(getBool(vm, id));
+        default: failed<StackOperationFailed>(vm, "A type mismatching in getValue()");
+        }
+    }
+
+    /// ditto
+    template <class T>
+    EnableChars<T, T> getValue(HSQUIRRELVM vm, int id)
+    {
+        const auto type = sq_gettype(vm, id);
+        switch (type)
+        {
+        case OT_STRING: return static_cast<T>(getString(vm, id));
+        default: failed<StackOperationFailed>(vm, "A type mismatching in getValue()");
+        }
+    }
+
+    /// ditto
+    template <class T>
+    EnableString<T, T> getValue(HSQUIRRELVM vm, int id)
+    {
+        return getValue<const SQChar*>(vm, id);
     }
 
     /** Push the values as user datas */

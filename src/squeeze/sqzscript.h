@@ -27,7 +27,7 @@ namespace squeeze
         void compileFile(const string_t& path)
         {
             release();
-            if (SQ_FAILED(sqstd_loadfile(vm_, sq(path.c_str()), SQTrue)))
+            if (SQ_FAILED(sqstd_loadfile(vm_, path.c_str(), SQTrue)))
             {
                 failed<ScriptException>(vm_, "sqstd_loadfile() failed.");
             }
