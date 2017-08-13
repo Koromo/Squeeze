@@ -1,10 +1,10 @@
 #ifndef SQUEEZE_SQZTABLE_H
 #define SQUEEZE_SQZTABLE_H
 
+#include "sqzclosure.h"
 #include "sqztableimpl.h"
 #include "sqzstackop.h"
 #include "sqzdef.h"
-#include "sqzutil.h"
 #include "squirrel/squirrel.h"
 #include <type_traits>
 
@@ -71,13 +71,24 @@ namespace squeeze
 
         /** Add a new slot as a class. */
         template <class Class>
-        HTable& klass(const string_t& key, HClass<Class> c);
+        HTable& clazz(const string_t& key, HClass<Class> c);
 
         /** Add a new slot as a function. */
         template <class Fun>
         HTable& fun(const string_t& key, Fun fun)
         {
-            newClosure(key, Closure::fun<Fun>, false, fun);
+            newClosure(key, Closure<Fun>::fun, false, fun);
+            return *this;
+        }
+
+        /** Add a new slot as a function. The embedded function returns a class instance. */
+        template <class Fun>
+        HTable& fun(const string_t& key, Fun fun, const string_t& retClassKey)
+        {
+            MemoryBlock mem;
+            mem.p = retClassKey.data();
+            mem.s = (retClassKey.length() + 1) * sizeof(SQChar);
+            newClosure(key, Closure<Fun>::fun, false, fun, mem);
             return *this;
         }
 
@@ -87,35 +98,6 @@ namespace squeeze
         {
             return HTableImpl::call<Return>(key, env, args...);
         }
-
-        // Referenced from HTable class and HClass class
-        struct Closure
-        {
-            template <class Fun>
-            static SQInteger fun(HSQUIRRELVM vm)
-            {
-                Fun* fun;
-                sq_getuserdata(vm, -1, reinterpret_cast<SQUserPointer*>(&fun), nullptr);
-                return fetchAndCall(vm, *fun, MakeIndexSequence<FunctionTraits<Fun>::arity>());
-            }
-
-            template <class Fun, size_t... ArgIndices>
-            static auto fetchAndCall(HSQUIRRELVM vm, Fun fun, IndexSequence<ArgIndices...>)
-                -> std::enable_if_t<std::is_void<ReturnType<Fun>>::value, SQInteger>
-            {
-                fun(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices + 2)...);
-                return 0;
-            }
-
-            template <class Fun, size_t... ArgIndices>
-            static auto fetchAndCall(HSQUIRRELVM vm, Fun fun, IndexSequence<ArgIndices...>)
-                -> std::enable_if_t<!std::is_void<ReturnType<Fun>>::value, SQInteger>
-            {
-                const auto ret = fun(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices + 2)...);
-                pushValue(vm, ret);
-                return 1;
-            }
-        };
     };
 }
 

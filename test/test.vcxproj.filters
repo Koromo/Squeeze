@@ -13,10 +13,10 @@
     <ClCompile Include="src\table.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\klass.cpp">
+    <ClCompile Include="src\script.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\script.cpp">
+    <ClCompile Include="src\clazz.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

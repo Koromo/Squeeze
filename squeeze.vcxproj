@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\squeeze\squeeze.h" />
+    <ClInclude Include="src\squeeze\sqzclosure.h" />
     <ClInclude Include="src\squeeze\sqztableimpl.h" />
     <ClInclude Include="src\squeeze\sqzclass.h" />
     <ClInclude Include="src\squeeze\sqzdef.h" />

@@ -40,5 +40,8 @@
     <ClInclude Include="src\squeeze\sqzutil.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\squeeze\sqzclosure.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

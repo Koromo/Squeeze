@@ -135,6 +135,7 @@ namespace squeeze
         case OT_BOOL: return static_cast<T>(getBool(vm, id));
         default: failed<StackOperationFailed>(vm, "A type mismatching in getValue()");
         }
+        return 0;
     }
 
     /// ditto
@@ -149,6 +150,7 @@ namespace squeeze
         case OT_BOOL: return static_cast<T>(getBool(vm, id));
         default: failed<StackOperationFailed>(vm, "A type mismatching in getValue()");
         }
+        return 0;
     }
 
     /// ditto
@@ -162,6 +164,7 @@ namespace squeeze
         case OT_BOOL: return static_cast<T>(getBool(vm, id));
         default: failed<StackOperationFailed>(vm, "A type mismatching in getValue()");
         }
+        return 0;
     }
 
     /// ditto
@@ -174,6 +177,7 @@ namespace squeeze
         case OT_STRING: return static_cast<T>(getString(vm, id));
         default: failed<StackOperationFailed>(vm, "A type mismatching in getValue()");
         }
+        return nullptr;
     }
 
     /// ditto
@@ -183,25 +187,77 @@ namespace squeeze
         return getValue<const SQChar*>(vm, id);
     }
 
+    /** The memory block abstruction for the pushUserData() function. */
+    struct MemoryBlock
+    {
+        const void* p;
+        size_t s;
+    };
+
     /** Push the values as user datas */
     template <class T, class... Ts>
-    void pushUserData(HSQUIRRELVM vm, T& val, Ts... values)
+    void pushUserData(HSQUIRRELVM vm, T val, Ts... values)
     {
         const auto usrData = sq_newuserdata(vm, sizeof(val));
         std::memcpy(usrData, &val, sizeof(val));
         pushUserData(vm, values...);
     }
 
-    /// ditto
-    template <class T, class... Ts>
-    void pushUserData(HSQUIRRELVM vm, T&& val, Ts... values)
+    template <class... Ts>
+    void pushUserData(HSQUIRRELVM vm, MemoryBlock mem, Ts... values)
     {
-        pushUserData(vm, val, values...);
+        const auto usrData = sq_newuserdata(vm, mem.s);
+        std::memcpy(usrData, mem.p, mem.s);
+        pushUserData(vm, values...);
     }
 
     /// ditto
     inline void pushUserData(HSQUIRRELVM vm)
     {
+    }
+
+    /**
+    Create a class instance object and push it to the stack.
+    The class in host code required the move constructor.
+    */
+    template <class Class>
+    bool pushClassInstance(HSQUIRRELVM vm, HSQOBJECT env, const SQChar* classKey, Class&& inst)
+    {
+        const auto top = sq_gettop(vm);
+
+        sq_pushobject(vm, env);
+        sq_pushstring(vm, classKey, -1);
+        if (SQ_FAILED(sq_rawget(vm, -2)))
+        {
+            sq_settop(vm, top);
+            sq_pushroottable(vm);
+            sq_pushstring(vm, classKey, -1);
+
+            if (SQ_FAILED(sq_rawget(vm, -2)))
+            {
+                sq_settop(vm, top);
+                return false;
+            }
+        }
+        if (SQ_FAILED(sq_createinstance(vm, -1)))
+        {
+            sq_settop(vm, top);
+            return false;
+        }
+
+        sq_remove(vm, -3); // Remove the table (roottable or env).
+        sq_remove(vm, -2); // Removes the class object.
+
+        const auto copy = new Class(std::move(inst));
+        if (SQ_FAILED(sq_setinstanceup(vm, -1, copy)))
+        {
+            delete copy;
+            sq_settop(vm, top);
+            return false;
+        }
+        sq_setreleasehook(vm, -1, CtorClosure<Class, std::tuple<>>::releaseHook);
+
+        return true;
     }
 }
 

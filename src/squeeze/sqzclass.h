@@ -1,13 +1,14 @@
 #ifndef SQUEEZE_SQZCLASS_H
 #define SQUEEZE_SQZCLASS_H
 
+#include "sqzclosure.h"
 #include "sqztable.h"
 #include "sqztableimpl.h"
 #include "sqzstackop.h"
 #include "sqzdef.h"
-#include "sqzutil.h"
 #include "squirrel/squirrel.h"
 #include <type_traits>
+#include <tuple>
 
 namespace squeeze
 {
@@ -47,7 +48,7 @@ namespace squeeze
         template <class... Args>
         HClass& ctor()
         {
-            newClosure(SQZ_T("constructor"), CtorClosure<Args...>::ctor, false);
+            newClosure(SQZ_T("constructor"), CtorClosure<Class, std::tuple<Args...>>::ctor, false);
             return *this;
         }
 
@@ -70,7 +71,18 @@ namespace squeeze
         template <class Return, class... Args>
         HClass& fun(const string_t& name, Return(Class::*fun)(Args...))
         {
-            newClosure(name, Closure::fun<decltype(fun)>, false, fun);
+            newClosure(name, MemClosure<Class, decltype(fun)>::fun, false, fun);
+            return *this;
+        }
+
+        /** Add a new slot as a non-static function. The embedded function returns a class instance. */
+        template <class Return, class... Args>
+        HTable& fun(const string_t& key, Return(Class::*fun)(Args...), const string_t& retClassKey)
+        {
+            MemoryBlock<const SQChar*> mem;
+            mem.p = retClassKey.data();
+            mem.s = (retClassKey.length() + 1) * sizeof(SQChar);
+            newClosure(name, MemClosure<Class, decltype(fun)>::fun, false, mem, fun);
             return *this;
         }
 
@@ -78,67 +90,20 @@ namespace squeeze
         template <class Fun, class = std::enable_if_t<!std::is_member_function_pointer<Fun>::value>>
         HClass& fun(const string_t& name, Fun fun)
         {
-            newClosure(name, Closure::fun<Fun>, true, fun);
+            newClosure(name, Closure<Fun>::fun, true, fun);
             return *this;
         }
 
-    private:
-        template <class... Args>
-        struct CtorClosure
+        /** Add a new slot as a static function. The embedded function returns a class instance. */
+        template <class Fun>
+        HTable& fun(const string_t& key, Fun fun, const string_t& retClassKey)
         {
-            static SQInteger ctor(HSQUIRRELVM vm)
-            {
-                const auto inst = instantiate(vm, MakeIndexSequence<sizeof...(Args)>());
-                sq_setinstanceup(vm, 1, inst);
-                sq_setreleasehook(vm, 1, releaseHook);
-                return 0;
-            }
-
-            template <size_t... ArgIndices>
-            static Class* instantiate(HSQUIRRELVM vm, IndexSequence<ArgIndices...>)
-            {
-                using A = std::tuple<Args...>;
-                return new Class(getValue<std::tuple_element_t<ArgIndices, A>>(vm, ArgIndices + 2)...);
-            }
-
-            static SQInteger releaseHook(SQUserPointer p, SQInteger)
-            {
-                delete static_cast<Class*>(p);
-                return 0;
-            }
-        };
-
-        struct Closure
-        {
-            template <class Fun>
-            static SQInteger fun(HSQUIRRELVM vm)
-            {
-                Fun* fun;
-                sq_getuserdata(vm, -1, reinterpret_cast<SQUserPointer*>(&fun), nullptr);
-
-                Class* inst;
-                sq_getinstanceup(vm, 1, reinterpret_cast<SQUserPointer*>(&inst), nullptr);
-
-                return fetchAndCall(vm, inst, *fun, MakeIndexSequence<FunctionTraits<Fun>::arity>());
-            }
-
-            template <class Fun, size_t... ArgIndices>
-            static auto fetchAndCall(HSQUIRRELVM vm, Class* inst, Fun fun, IndexSequence<ArgIndices...>)
-                -> std::enable_if_t<std::is_void<ReturnType<Fun>>::value, SQInteger>
-            {
-                (inst->*fun)(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices + 2)...);
-                return 0;
-            }
-
-            template <class Fun, size_t... ArgIndices>
-            static auto fetchAndCall(HSQUIRRELVM vm, Class* inst, Fun fun, IndexSequence<ArgIndices...>)
-                -> std::enable_if_t<!std::is_void<ReturnType<Fun>>::value, SQInteger>
-            {
-                const auto ret = (inst->*fun)(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices + 2)...);
-                pushValue(vm, ret);
-                return 1;
-            }
-        };
+            MemoryBlock mem;
+            mem.p = retClassKey.data();
+            mem.s = (retClassKey.length() + 1) * sizeof(SQChar);
+            newClosure(key, Closure<Fun>::fun, true, fun, mem);
+            return *this;
+        }
     };
 }
 

@@ -23,7 +23,7 @@ namespace squeeze
         sq_setroottable(vm_);
     }
 
-    template <class Class> HTable& HTable::klass(const string_t& key, HClass<Class> c)
+    template <class Class> HTable& HTable::clazz(const string_t& key, HClass<Class> c)
     {
         newSlot(key, c, false);
         return *this;
