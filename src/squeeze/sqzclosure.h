@@ -181,39 +181,6 @@ namespace squeeze
             return 1;
         }
     };
-
-    /** A closure for free function embeddings. The function returns a class instance 
-    struct ReturnClassClosure
-    {
-        template <class Fun>
-        static SQInteger fun(HSQUIRRELVM vm)
-        {
-            Fun* fun;
-            sq_getuserdata(vm, -2, reinterpret_cast<SQUserPointer*>(&fun), nullptr);
-
-            const SQChar* key;
-            sq_getuserdata(vm, -1, reinterpret_cast<SQUserPointer*>(&varName), nullptr);
-
-            return fetchAndCall(vm, *fun, key, MakeIndexSequence<FunctionTraits<Fun>::arity>());
-        }
-
-        template <class Fun, size_t... ArgIndices>
-        static auto fetchAndCall(HSQUIRRELVM vm, Fun fun, const SQChar* key, IndexSequence<ArgIndices...>)
-        {
-            const auto ret = fun(getValue<ArgumentType<Fun, ArgIndices>>(vm, ArgIndices + 2)...);
-
-
-
-
-
-            HTable table(vm, obj);
-
-
-            pushValue(vm, ret);
-            return 1;
-        }
-    };
-    */
 }
 
 #endif
