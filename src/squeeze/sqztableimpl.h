@@ -32,20 +32,7 @@ namespace squeeze
             return isSame;
         }
 
-    protected:
-        template <class T>
-        void newSlot(const string_t& key, const T& val, bool bstatic)
-        {
-            const auto top = sq_gettop(vm_);
-            pushValue(vm_, obj_, key, val);
-            if (SQ_FAILED(sq_newslot(vm_, -3, bstatic)))
-            {
-                sq_settop(vm_, top);
-                failed<ObjectHandlingFailed>(vm_, "sq_newslot() failed.");
-            }
-            sq_settop(vm_, top);
-        }
-
+        /** Add a closure. */
         template <class... FreeVars>
         void newClosure(const string_t& key, SQFUNCTION closure, bool bstatic, const FreeVars&... freeVars)
         {
@@ -56,7 +43,21 @@ namespace squeeze
             if (SQ_FAILED(sq_newslot(vm_, -3, bstatic)))
             {
                 sq_settop(vm_, top);
-                failed<ObjectHandlingFailed>(vm_, "sq_newclosure() failed.");
+                failed<ObjectHandlingFailed>(vm_, "sq_newslot() failed.");
+            }
+            sq_settop(vm_, top);
+        }
+
+    protected:
+        template <class T>
+        void newSlot(const string_t& key, const T& val, bool bstatic)
+        {
+            const auto top = sq_gettop(vm_);
+            pushValue(vm_, obj_, key, val);
+            if (SQ_FAILED(sq_newslot(vm_, -3, bstatic)))
+            {
+                sq_settop(vm_, top);
+                failed<ObjectHandlingFailed>(vm_, "sq_newslot() failed.");
             }
             sq_settop(vm_, top);
         }
@@ -97,6 +98,17 @@ namespace squeeze
             const auto ret = getValue<Return>(vm_, -1);
             sq_settop(vm_, top);
             return ret;
+        }
+
+        void clone(HTableImpl* table)
+        {
+            release();
+            vm_ = table->vm_;
+            pushValue(vm_, *table);
+            sq_clone(vm_, -1);
+            sq_getstackobj(vm_, -1, &obj_);
+            sq_addref(vm_, &obj_);
+            sq_pop(vm_, 2);
         }
 
     private:

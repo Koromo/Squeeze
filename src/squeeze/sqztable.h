@@ -5,6 +5,7 @@
 #include "sqztableimpl.h"
 #include "sqzstackop.h"
 #include "sqzdef.h"
+#include "sqzutil.h"
 #include "squirrel/squirrel.h"
 #include <type_traits>
 
@@ -41,16 +42,8 @@ namespace squeeze
         /** Create a clone table */
         HTable clone()
         {
-            HTable clo(vm_);
-
-            const auto top = sq_gettop(vm_);
-            pushValue(vm_, obj_, clo.obj_, nullptr);
-            while (SQ_SUCCEEDED(sq_next(vm_, -3)))
-            {
-                sq_newslot(vm_, -4, SQFalse);
-            }
-            sq_settop(vm_, top);
-
+            HTable clo;
+            clo.HTableImpl::clone(this);
             return clo;
         }
 
@@ -74,15 +67,21 @@ namespace squeeze
         HTable& clazz(const string_t& key, HClass<Class> c);
 
         /** Add a new slot as a function. */
-        template <class Fun>
+        template <
+            class Fun,
+            class = std::enable_if_t<!std::is_class<ReturnType<Fun>>::value>
+        >
         HTable& fun(const string_t& key, Fun fun)
         {
             newClosure(key, Closure<Fun>::fun, false, fun);
             return *this;
         }
 
-        /** Add a new slot as a function. The embedded function returns a class instance. */
-        template <class Fun>
+        /// ditto
+        template <
+            class Fun,
+            class = std::enable_if_t<std::is_class<ReturnType<Fun>>::value>
+        >
         HTable& fun(const string_t& key, Fun fun, const string_t& retClassKey)
         {
             MemoryBlock mem;

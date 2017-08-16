@@ -9,6 +9,90 @@
 
 namespace squeeze
 {
+    /** The void type */
+    struct Void {};
+
+    /**
+    Create a class instance object and push it to the stack.
+    The class in host code required the move or copy constructor (move has priority).
+    */
+    template <class Class>
+    bool pushClassInstance(HSQUIRRELVM vm, HSQOBJECT env, const SQChar* classKey, Class&& inst)
+    {
+        const auto top = sq_gettop(vm);
+
+        sq_pushobject(vm, env);
+        sq_pushstring(vm, classKey, -1);
+        if (SQ_FAILED(sq_rawget(vm, -2)))
+        {
+            sq_settop(vm, top);
+            sq_pushroottable(vm);
+            sq_pushstring(vm, classKey, -1);
+
+            if (SQ_FAILED(sq_rawget(vm, -2)))
+            {
+                sq_settop(vm, top);
+                return false;
+            }
+        }
+        if (SQ_FAILED(sq_createinstance(vm, -1)))
+        {
+            sq_settop(vm, top);
+            return false;
+        }
+
+        sq_remove(vm, -3); // Remove the table (roottable or env).
+        sq_remove(vm, -2); // Remove the class object.
+
+        const auto copy = new Class(std::move(inst));
+        if (SQ_FAILED(sq_setinstanceup(vm, -1, copy)))
+        {
+            delete copy;
+            sq_settop(vm, top);
+            return false;
+        }
+        sq_setreleasehook(vm, -1, CtorClosure<Class, std::tuple<>>::releaseHook);
+
+        return true;
+    }
+
+    /** Push the return value */
+    template <class R>
+    auto pushReturn(HSQUIRRELVM vm, R ret)
+        -> std::enable_if_t<std::is_same<R, Void>::value, SQInteger>
+    {
+        return 0;
+    }
+
+    template <class R>
+    auto pushReturn(HSQUIRRELVM vm, R&& ret)
+        -> std::enable_if_t<std::is_class<R>::value && !std::is_same<R, Void>::value, SQInteger>
+    {
+        SQChar* classKey;
+        sq_getuserdata(vm, -2, reinterpret_cast<SQUserPointer*>(&classKey), nullptr);
+
+        HSQOBJECT env;
+        sq_getstackobj(vm, 1, &env);
+        sq_addref(vm, &env);
+
+        if (!pushClassInstance(vm, env, classKey, std::move(ret)))
+        {
+            sq_release(vm, &env);
+            failed<CallFailed>(vm, "Failed to create instance.");
+        }
+
+        sq_release(vm, &env);
+        return 1;
+    }
+
+    template <class R>
+    auto pushReturn(HSQUIRRELVM vm, R ret)
+        -> std::enable_if_t<!std::is_class<R>::value && !std::is_same<R, Void>::value, SQInteger>
+    {
+        pushValue(vm, ret);
+        return 1;
+    }
+
     /** Fetch and call a function */
     template <class Return, class Arguments>
     struct Fetch
@@ -42,6 +126,40 @@ namespace squeeze
         }
     };
 
+    template <class Arguments>
+    struct Fetch<void, Arguments>
+    {
+        using A = Arguments;
+        enum { arity = std::tuple_size<A>::value };
+
+        template <class Fun>
+        static Void call(HSQUIRRELVM vm, Fun fun)
+        {
+            freefun(vm, fun, MakeIndexSequence<arity>());
+            return{};
+        }
+
+        template <class Fun, class Class>
+        static Void call(HSQUIRRELVM vm, Fun fun, Class* inst)
+        {
+            memfun(vm, fun, inst, MakeIndexSequence<arity>());
+            return{};
+        }
+
+        template <class Fun, size_t... I>
+        static void freefun(HSQUIRRELVM vm, Fun fun, IndexSequence<I...>)
+        {
+            fun(getValue<std::tuple_element_t<I, A>>(vm, I + 2)...);
+        }
+
+        template <class Fun, class Class, size_t... I>
+        static void memfun(HSQUIRRELVM vm, Fun fun, Class* inst, IndexSequence<I...>)
+        {
+            (inst->*fun)(getValue<std::tuple_element_t<I, A>>(vm, I + 2)...);
+        }
+    };
+
+
     /** A closure for constructors */
     template <class Class, class Arguments>
     struct CtorClosure
@@ -74,7 +192,7 @@ namespace squeeze
     template <class Fun>
     struct Closure
     {
-        //using R = ReturnType<Fun>;
+        using R = ReturnType<Fun>;
         using A = typename FunctionTraits<Fun>::Arguments;
         enum { arity = std::tuple_size<A>::value };
 
@@ -82,53 +200,17 @@ namespace squeeze
         {
             Fun* fun;
             sq_getuserdata(vm, -1, reinterpret_cast<SQUserPointer*>(&fun), nullptr);
-            return fetch<ReturnType<Fun>>(vm, *fun, MakeIndexSequence<arity>());
-        }
 
-        template <class R, class Fun, size_t... I>
-        static auto fetch(HSQUIRRELVM vm, Fun fun, IndexSequence<I...>)
-            -> std::enable_if_t<std::is_void<R>::value, SQInteger>
-        {
-            Fetch<void, A>::call(vm, fun);
-            return 0;
-        }
-
-        template <class R, class Fun, size_t... I>
-        static auto fetch(HSQUIRRELVM vm, Fun fun, IndexSequence<I...>)
-            -> std::enable_if_t<!std::is_void<R>::value && std::is_class<R>::value, SQInteger>
-        {
-            SQChar* classKey;
-            sq_getuserdata(vm, -2, reinterpret_cast<SQUserPointer*>(&classKey), nullptr);
-
-            HSQOBJECT env;
-            sq_getstackobj(vm, 1, &env);
-            sq_addref(vm, &env);
-
-            if (!createClassInstance(vm, env, classKey, Fetch<R, A>::call(vm, fun)))
-            {
-                sq_release(vm, &env);
-                failed<CallFailed>(vm, "fetch() failed.");
-            }
-
-            sq_release(vm, &env);
-            return 1;
-        }
-
-        template <class R, class Fun, size_t... I>
-        static auto fetch(HSQUIRRELVM vm, Fun fun, IndexSequence<I...>)
-            -> std::enable_if_t<!std::is_void<R>::value && !std::is_class<R>::value, SQInteger>
-        {
-            const auto r = Fetch<R, A>::call(vm, fun);
-            pushValue(vm, r);
-            return 1;
+            auto ret = Fetch<R, A>::call(vm, *fun);
+            return pushReturn(vm, std::move(ret));
         }
     };
 
     /** A closure for member function embeddings. */
-    template <class Class, class Fun>
+    template <class Class, class Fun = void(Class::*)()>
     struct MemClosure
     {
-        //using R = ReturnType<Fun>;
+        using R = ReturnType<Fun>;
         using A = typename FunctionTraits<Fun>::Arguments;
         enum { arity = std::tuple_size<A>::value };
 
@@ -140,44 +222,52 @@ namespace squeeze
             Class* inst;
             sq_getinstanceup(vm, 1, reinterpret_cast<SQUserPointer*>(&inst), nullptr);
 
-            return fetch<ReturnType<Fun>>(vm, *fun, inst, MakeIndexSequence<arity>());
+            auto ret = Fetch<R, A>::call(vm, *fun, inst);
+            return pushReturn(vm, std::move(ret));
         }
 
-        template <class R, class Fun, size_t... I>
-        static auto fetch(HSQUIRRELVM vm, Fun fun, Class* inst, IndexSequence<I...>)
-            -> std::enable_if_t<std::is_void<R>::value, SQInteger>
+        static SQInteger opSet(HSQUIRRELVM vm)
         {
-            Fetch<void, A>::call(vm, fun, inst);
+            const auto top = sq_gettop(vm);
+
+            sq_push(vm, 2);
+            if (SQ_FAILED(sq_get(vm, -2)))
+            {
+                sq_settop(vm, top);
+                failed<CallFailed>(vm, "sq_get() failed.");
+            }
+
+            sq_push(vm, 1);
+            sq_push(vm, 3);
+
+            if (sq_call(vm, 2, SQFalse, SQTrue))
+            {
+                sq_settop(vm, top);
+                failed<CallFailed>(vm, "sq_call() failed.");
+            }
+            sq_settop(vm, top);
             return 0;
         }
 
-        template <class R, class Fun, size_t... I>
-        static auto fetch(HSQUIRRELVM vm, Fun fun, Class* inst, IndexSequence<I...>)
-            -> std::enable_if_t<!std::is_void<R>::value && std::is_class<R>::value, SQInteger>
+        static SQInteger opGet(HSQUIRRELVM vm)
         {
-            const SQChar* classKey;
-            sq_getstring(vm, -2, &classKey);
+            const auto top = sq_gettop(vm);
 
-            HSQOBJECT env;
-            sq_getstackobj(vm, 1, &env);
-            sq_addref(vm, &env);
-
-            if (!createClassInstance(vm, env, classKey, Fetch<R, A>::call(vm, fun, inst)))
+            sq_push(vm, 2);
+            if (SQ_FAILED(sq_get(vm, -2)))
             {
-                sq_release(vm, &env);
-                failed<CallFailed>(vm, "fetch() failed.");
+                sq_settop(vm, top);
+                failed<CallFailed>(vm, "sq_get() failed.");
             }
 
-            sq_release(vm, &env);
-            return 1;
-        }
+            sq_push(vm, 1);
 
-        template <class R, class Fun, size_t... I>
-        static auto fetch(HSQUIRRELVM vm, Fun fun, Class* inst, IndexSequence<I...>)
-            -> std::enable_if_t<!std::is_void<R>::value && !std::is_class<R>::value, SQInteger>
-        {
-            const auto r = Fetch<R, A>::call(vm, fun, inst);
-            pushValue(vm, r);
+            if (sq_call(vm, 1, SQTrue, SQTrue))
+            {
+                sq_settop(vm, top);
+                failed<CallFailed>(vm, "sq_call() failed.");
+            }
+            sq_remove(vm, -2);
             return 1;
         }
     };

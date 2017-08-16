@@ -34,10 +34,13 @@ namespace squeeze
         struct FunctionTraitsImpl<R(*)(Args...)> : FunctionTraitsImpl<R(Args...)> {};
 
         template <class C, class R, class... Args>
-        struct FunctionTraitsImpl<R(C::*)(Args...)> : FunctionTraitsImpl<R(Args...)> {};
+        struct FunctionTraitsImpl<R(C::*)(Args...)> : FunctionTraitsImpl<R(Args...)>
+        {
+            using ClassType = C;
+        };
 
         template <class C, class R, class... Args>
-        struct FunctionTraitsImpl<R(C::*)(Args...) const> : FunctionTraitsImpl<R(Args...)> {};
+        struct FunctionTraitsImpl<R(C::*)(Args...) const> : FunctionTraitsImpl<R(C::*)(Args...)> {};
     }
 
     /// The FunctionTraits

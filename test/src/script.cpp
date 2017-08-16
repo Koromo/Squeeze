@@ -31,6 +31,11 @@ struct Vec
     int x, y;
     Vec(int x_, int y_) : x(x_), y(y_) {}
     int sum() { return x + y; }
+
+    int getx() { return x; }
+    void setx(int x_) { x = x_; }
+    int gety() { return y; }
+    void sety(int y_) { y = y_; }
 };
 
 Vec getVec(int x, int y) { return Vec(x * 2, y); }
@@ -43,6 +48,9 @@ TEST(SCRIPT, CLASS)
     HClass<Vec> c(vm);
     c.ctor<int, int>();
     c.fun(SQZ_T("sum"), &Vec::sum);
+    c.setter(SQZ_T("x"), &Vec::setx);
+    c.getter(SQZ_T("x"), &Vec::getx);
+    c.prop(SQZ_T("y"), &Vec::gety, &Vec::sety);
 
     auto table = vm.rootTable();
     table.clazz(SQZ_T("Vec2"), c);
@@ -56,6 +64,7 @@ TEST(SCRIPT, CLASS)
 
     CHECK(env.call<int>(SQZ_T("vecsum"), env, 5, 2) == 7);
     CHECK(env.call<int>(SQZ_T("vecsum_withget"), env, 5, 2) == 12);
+    CHECK(env.call<int>(SQZ_T("setget"), env, 5, 2) == 10);
 
     vm.close();
 }

@@ -215,50 +215,6 @@ namespace squeeze
     inline void pushUserData(HSQUIRRELVM vm)
     {
     }
-
-    /**
-    Create a class instance object and push it to the stack.
-    The class in host code required the move constructor.
-    */
-    template <class Class>
-    bool pushClassInstance(HSQUIRRELVM vm, HSQOBJECT env, const SQChar* classKey, Class&& inst)
-    {
-        const auto top = sq_gettop(vm);
-
-        sq_pushobject(vm, env);
-        sq_pushstring(vm, classKey, -1);
-        if (SQ_FAILED(sq_rawget(vm, -2)))
-        {
-            sq_settop(vm, top);
-            sq_pushroottable(vm);
-            sq_pushstring(vm, classKey, -1);
-
-            if (SQ_FAILED(sq_rawget(vm, -2)))
-            {
-                sq_settop(vm, top);
-                return false;
-            }
-        }
-        if (SQ_FAILED(sq_createinstance(vm, -1)))
-        {
-            sq_settop(vm, top);
-            return false;
-        }
-
-        sq_remove(vm, -3); // Remove the table (roottable or env).
-        sq_remove(vm, -2); // Removes the class object.
-
-        const auto copy = new Class(std::move(inst));
-        if (SQ_FAILED(sq_setinstanceup(vm, -1, copy)))
-        {
-            delete copy;
-            sq_settop(vm, top);
-            return false;
-        }
-        sq_setreleasehook(vm, -1, CtorClosure<Class, std::tuple<>>::releaseHook);
-
-        return true;
-    }
 }
 
 #endif
