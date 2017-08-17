@@ -88,6 +88,20 @@ namespace squeeze
             return *this;
         }
 
+        /// ditto
+        template <
+            class Setter,
+            class = std::enable_if_t<std::is_same<ReturnType<Setter>, void>::value>,
+            class = std::enable_if_t<IsUserClass<ReturnType<F>>::value>
+        >
+        HClass& setter(const string_t& name, Setter set, const string_t& retClassKey)
+        {
+            const auto p = retClassKey.data();
+            const auto s = (retClassKey.length() + 1) * sizeof(SQChar);
+            setTable_.newClosure(name, Closure::memfun<Setter, Class>, false, UserData(&set, sizeof(Setter)), UserData(p, s));
+            return *this;
+        }
+
         /** Add a member as a getter. */
         template <
             class Getter,
@@ -96,6 +110,20 @@ namespace squeeze
         HClass& getter(const string_t& name, Getter get)
         {
             getTable_.newClosure(name, Closure::memfun<Getter, Class>, false, UserData(&get, sizeof(Getter)));
+            return *this;
+        }
+
+        /// ditoo
+        template <
+            class Getter,
+            class = std::enable_if_t<!std::is_same<ReturnType<Getter>, void>::value>,
+            class = std::enable_if_t<IsUserClass<ReturnType<F>>::value>
+        >
+        HClass& getter(const string_t& name, Getter get, const string_t& retClassKey)
+        {
+            const auto p = retClassKey.data();
+            const auto s = (retClassKey.length() + 1) * sizeof(SQChar);
+            getTable_.newClosure(name, Closure::memfun<Getter, Class>, false, UserData(&get, sizeof(Getter)), UserData(p, s));
             return *this;
         }
 
