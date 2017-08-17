@@ -68,34 +68,33 @@ namespace squeeze
 
         /** Add a new slot as a function. */
         template <
-            class Fun,
-            class = std::enable_if_t<!std::is_class<ReturnType<Fun>>::value>
+            class F,
+            class = std::enable_if_t<!IsUserClass<ReturnType<F>>::value>
         >
-        HTable& fun(const string_t& key, Fun fun)
+        HTable& fun(const string_t& key, F f)
         {
-            newClosure(key, Closure<Fun>::fun, false, fun);
+            newClosure(key, Closure::fun<F>, false, UserData(&f, sizeof(F)));
             return *this;
         }
 
         /// ditto
         template <
-            class Fun,
-            class = std::enable_if_t<std::is_class<ReturnType<Fun>>::value>
+            class F,
+            class = std::enable_if_t<IsUserClass<ReturnType<F>>::value>
         >
-        HTable& fun(const string_t& key, Fun fun, const string_t& retClassKey)
+        HTable& fun(const string_t& key, F f, const string_t& retClassKey)
         {
-            MemoryBlock mem;
-            mem.p = retClassKey.data();
-            mem.s = (retClassKey.length() + 1) * sizeof(SQChar);
-            newClosure(key, Closure<Fun>::fun, false, fun, mem);
+            const auto p = retClassKey.data();
+            const auto s = (retClassKey.length() + 1) * sizeof(SQChar);
+            newClosure(key, Closure::fun<F>, false, UserData(&f, sizeof(F)), UserData(p, s));
             return *this;
         }
 
         /** Call a function mapped by 'key'. */
         template <class Return, class... Args>
-        Return call(const string_t& key, HTable env, const Args&... args)
+        Return call(const string_t& key, HTable env,  Args&&... args)
         {
-            return HTableImpl::call<Return>(key, env, args...);
+            return HTableImpl::call<Return>(key, env, std::forward<Args>(args)...);
         }
     };
 }

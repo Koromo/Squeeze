@@ -9,12 +9,14 @@
 
 namespace squeeze
 {
-    /** The void type */
-    struct Void {};
+    namespace detail
+    {
+        struct VoidType {};
+    }
 
     /**
     Create a class instance object and push it to the stack.
-    The class in host code required the move or copy constructor (move has priority).
+    The class is converted to the object required the move or copy constructor (move has priority).
     */
     template <class Class>
     bool pushClassInstance(HSQUIRRELVM vm, HSQOBJECT env, const SQChar* classKey, Class&& inst)
@@ -51,7 +53,7 @@ namespace squeeze
             sq_settop(vm, top);
             return false;
         }
-        sq_setreleasehook(vm, -1, CtorClosure<Class, std::tuple<>>::releaseHook);
+        sq_setreleasehook(vm, -1, CtorClosure<Class>::releaseHook);
 
         return true;
     }
@@ -59,14 +61,14 @@ namespace squeeze
     /** Push the return value */
     template <class R>
     auto pushReturn(HSQUIRRELVM vm, R ret)
-        -> std::enable_if_t<std::is_same<R, Void>::value, SQInteger>
+        -> std::enable_if_t<std::is_same<R, detail::VoidType>::value, SQInteger>
     {
         return 0;
     }
 
     template <class R>
     auto pushReturn(HSQUIRRELVM vm, R&& ret)
-        -> std::enable_if_t<std::is_class<R>::value && !std::is_same<R, Void>::value, SQInteger>
+        -> std::enable_if_t<IsUserClass<R>::value && !std::is_same<R, detail::VoidType>::value, SQInteger>
     {
         SQChar* classKey;
         sq_getuserdata(vm, -2, reinterpret_cast<SQUserPointer*>(&classKey), nullptr);
@@ -87,98 +89,72 @@ namespace squeeze
 
     template <class R>
     auto pushReturn(HSQUIRRELVM vm, R ret)
-        -> std::enable_if_t<!std::is_class<R>::value && !std::is_same<R, Void>::value, SQInteger>
+        -> std::enable_if_t<!IsUserClass<R>::value && !std::is_same<R, detail::VoidType>::value, SQInteger>
     {
         pushValue(vm, ret);
         return 1;
     }
 
+    namespace detail
+    {
+        template <size_t offset, size_t... I, class F, class... Heads, class R = ReturnType<F>>
+        auto fetchImpl(IndexSequence<I...>, HSQUIRRELVM vm, F&& f, Heads&&... heads)
+            -> std::enable_if_t<!std::is_same<R, void>::value, R>
+        {
+            return call(std::forward<F>(f), std::forward<Heads>(heads)..., getValue<ArgumentType<F, offset + I>>(vm, I + 2)...);
+        }
+
+        template <size_t offset, size_t... I, class F, class... Heads, class R = ReturnType<F>>
+        auto fetchImpl(IndexSequence<I...>, HSQUIRRELVM vm, F&& f, Heads&&... heads)
+            -> std::enable_if_t<std::is_same<R, void>::value, VoidType>
+        {
+            call(std::forward<F>(f), std::forward<Heads>(heads)..., getValue<ArgumentType<F, offset + I>>(vm, I + 2)...);
+            return{};
+        }
+    }
+
     /** Fetch and call a function */
-    template <class Return, class Arguments>
-    struct Fetch
+    template <class F, size_t arity = FunctionTraits<F>::arity>
+    auto fetch(HSQUIRRELVM vm, F&& f)
+        -> decltype(detail::fetchImpl<0>(MakeIndices<arity>(), vm, std::forward<F>(f)))
     {
-        using R = Return;
-        using A = Arguments;
-        enum { arity = std::tuple_size<A>::value };
+        return detail::fetchImpl<0>(MakeIndices<arity>(), vm, std::forward<F>(f));
+    }
 
-        template <class Fun>
-        static R call(HSQUIRRELVM vm, Fun fun)
-        {
-            return freefun(vm, fun, MakeIndexSequence<arity>());
-        }
-
-        template <class Fun, class Class>
-        static R call(HSQUIRRELVM vm, Fun fun, Class* inst)
-        {
-            return memfun(vm, fun, inst, MakeIndexSequence<arity>());
-        }
-
-        template <class Fun, size_t... I>
-        static R freefun(HSQUIRRELVM vm, Fun fun, IndexSequence<I...>)
-        {
-            return fun(getValue<std::tuple_element_t<I, A>>(vm, I + 2)...);
-        }
-
-        template <class Fun, class Class, size_t... I>
-        static R memfun(HSQUIRRELVM vm, Fun fun, Class* inst, IndexSequence<I...>)
-        {
-            return (inst->*fun)(getValue<std::tuple_element_t<I, A>>(vm, I + 2)...); 
-        }
-    };
-
-    template <class Arguments>
-    struct Fetch<void, Arguments>
+    template <class F, class Head, size_t arity = FunctionTraits<F>::arity, class = std::enable_if_t<(arity > 0)>>
+    auto fetch(HSQUIRRELVM vm, F&& f, Head&& head)
+        -> decltype(detail::fetchImpl<1>(MakeIndices<arity - 1>(), vm, std::forward<F>(f), std::forward<Head>(head)))
     {
-        using A = Arguments;
-        enum { arity = std::tuple_size<A>::value };
+        return detail::fetchImpl<1>(MakeIndices<arity - 1>(), vm, std::forward<F>(f), std::forward<Head>(head));
+    }
 
-        template <class Fun>
-        static Void call(HSQUIRRELVM vm, Fun fun)
-        {
-            freefun(vm, fun, MakeIndexSequence<arity>());
-            return{};
-        }
-
-        template <class Fun, class Class>
-        static Void call(HSQUIRRELVM vm, Fun fun, Class* inst)
-        {
-            memfun(vm, fun, inst, MakeIndexSequence<arity>());
-            return{};
-        }
-
-        template <class Fun, size_t... I>
-        static void freefun(HSQUIRRELVM vm, Fun fun, IndexSequence<I...>)
-        {
-            fun(getValue<std::tuple_element_t<I, A>>(vm, I + 2)...);
-        }
-
-        template <class Fun, class Class, size_t... I>
-        static void memfun(HSQUIRRELVM vm, Fun fun, Class* inst, IndexSequence<I...>)
-        {
-            (inst->*fun)(getValue<std::tuple_element_t<I, A>>(vm, I + 2)...);
-        }
-    };
-
+    template <class R, class C, class Head>
+    auto fetch(HSQUIRRELVM vm, R C::* f, Head&& head)
+        -> decltype(detail::fetchImpl<0>(MakeIndices<FunctionTraits<decltype(f)>::arity>(), vm, std::forward<decltype(f)>(f), std::forward<Head>(head)))
+    {
+        return detail::fetchImpl<0>(MakeIndices<FunctionTraits<decltype(f)>::arity>(), vm, std::forward<decltype(f)>(f), std::forward<Head>(head));
+    }
 
     /** A closure for constructors */
-    template <class Class, class Arguments>
+    template <class Class>
     struct CtorClosure
     {
-        using A = Arguments;
-        enum { arity = std::tuple_size<A>::value };
-
+        template < class... Args>
         static SQInteger ctor(HSQUIRRELVM vm)
         {
-            const auto inst = instantiate(vm, MakeIndexSequence<arity>());
+            using ArgTuple = std::tuple<Args...>;
+            const auto arity = sizeof...(Args);
+
+            const auto inst = instantiate<ArgTuple>(vm, MakeIndices<arity>());
             sq_setinstanceup(vm, 1, inst);
             sq_setreleasehook(vm, 1, releaseHook);
             return 0;
         }
 
-        template <size_t... I>
+        template <class Args, size_t... I>
         static Class* instantiate(HSQUIRRELVM vm, IndexSequence<I...>)
         {
-            return new Class(getValue<std::tuple_element_t<I, A>>(vm, I + 2)...);
+            return new Class(getValue<std::tuple_element_t<I, Args>>(vm, I + 2)...);
         }
 
         static SQInteger releaseHook(SQUserPointer p, SQInteger)
@@ -188,41 +164,29 @@ namespace squeeze
         }
     };
 
-    /** A closure for free function embeddings. */
-    template <class Fun>
+    /** Closures for function embeddings. */
     struct Closure
     {
-        using R = ReturnType<Fun>;
-        using A = typename FunctionTraits<Fun>::Arguments;
-        enum { arity = std::tuple_size<A>::value };
-
+        template <class F>
         static SQInteger fun(HSQUIRRELVM vm)
         {
-            Fun* fun;
-            sq_getuserdata(vm, -1, reinterpret_cast<SQUserPointer*>(&fun), nullptr);
+            F* f;
+            sq_getuserdata(vm, -1, reinterpret_cast<SQUserPointer*>(&f), nullptr);
 
-            auto ret = Fetch<R, A>::call(vm, *fun);
+            auto&& ret = fetch(vm, *f);
             return pushReturn(vm, std::move(ret));
         }
-    };
 
-    /** A closure for member function embeddings. */
-    template <class Class, class Fun = void(Class::*)()>
-    struct MemClosure
-    {
-        using R = ReturnType<Fun>;
-        using A = typename FunctionTraits<Fun>::Arguments;
-        enum { arity = std::tuple_size<A>::value };
-
-        static SQInteger fun(HSQUIRRELVM vm)
+        template <class F, class Class>
+        static SQInteger memfun(HSQUIRRELVM vm)
         {
-            Fun* fun;
-            sq_getuserdata(vm, -1, reinterpret_cast<SQUserPointer*>(&fun), nullptr);
+            F* f;
+            sq_getuserdata(vm, -1, reinterpret_cast<SQUserPointer*>(&f), nullptr);
 
             Class* inst;
             sq_getinstanceup(vm, 1, reinterpret_cast<SQUserPointer*>(&inst), nullptr);
 
-            auto ret = Fetch<R, A>::call(vm, *fun, inst);
+            auto&& ret = fetch(vm, *f, inst);
             return pushReturn(vm, std::move(ret));
         }
 

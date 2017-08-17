@@ -20,14 +20,9 @@ namespace squeeze
         template <class R, class... Args>
         struct FunctionTraitsImpl<R(Args...)>
         {
-            using ReturnType = R;
-
             enum { arity = sizeof...(Args) };
-
+            using ReturnType = R;
             using Arguments = std::tuple<Args...>;
-
-            template <size_t N>
-            using ArgumentType = std::enable_if_t<(N < arity), std::tuple_element_t<N, Arguments>>;
         };
 
         template <class R, class... Args>
@@ -43,18 +38,27 @@ namespace squeeze
         struct FunctionTraitsImpl<R(C::*)(Args...) const> : FunctionTraitsImpl<R(C::*)(Args...)> {};
     }
 
-    /// The FunctionTraits
-    template <class Fun>
-    using FunctionTraits = typename detail::FunctionTraitsImpl<std::decay_t<Fun>>;
+    /** The function traits. */
+    template <class F>
+    using FunctionTraits = typename detail::FunctionTraitsImpl<std::decay_t<F>>;
 
-    /// Shortcut to FunctionTraits
-    template <class Fun>
-    using ReturnType = typename FunctionTraits<Fun>::ReturnType;
+    /** A shortcut to the function traits. */
+    template <class F>
+    using ReturnType = typename FunctionTraits<F>::ReturnType;
 
     /// ditto
-    template <class Fun, size_t N>
-    using ArgumentType = std::enable_if_t<(N < FunctionTraits<Fun>::arity), std::tuple_element_t<N, typename FunctionTraits<Fun>::Arguments>>;
+    template <class F>
+    using Arguments = typename FunctionTraits<F>::Arguments;
 
+    /// ditto
+    template <class F, size_t N>
+    using ArgumentType = std::enable_if_t<(N < FunctionTraits<F>::arity), std::tuple_element_t<N, Arguments<F>>>;
+
+    /// ditto
+    template <class F>
+    using ClassType = typename FunctionTraits<F>::ClassType;
+
+    /** The IndexSequence class. */
     template <size_t... Indices>
     struct IndexSequence
     {
@@ -64,19 +68,94 @@ namespace squeeze
     namespace detail
     {
         template <size_t N, size_t Extend, size_t Step, size_t... Indices>
-        struct MakeIndices : MakeIndices<N - 1, Extend + Step, Step, Indices..., Extend>
+        struct MakeIndicesImpl : MakeIndicesImpl<N - 1, Extend + Step, Step, Indices..., Extend>
         {
         };
 
         template <size_t Extend, size_t Step, size_t... Indices>
-        struct MakeIndices<0, Extend, Step, Indices...>
+        struct MakeIndicesImpl<0, Extend, Step, Indices...>
         {
             using Type = IndexSequence<Indices...>;
         };
     }
 
+    /** Create the IndexSequence<0, ... , N-1>. */
     template <size_t N>
-    using MakeIndexSequence = typename detail::MakeIndices<N, 0, 1>::Type;
+    using MakeIndices = typename detail::MakeIndicesImpl<N, 0, 1>::Type;
+
+    namespace detail
+    {
+        template <class T>
+        struct IsPointer : std::is_pointer<std::remove_reference_t<T>> {};
+    }
+
+    /** Call a callable object with arguments. */
+    template <class R, class C, class T, class... Args>
+    auto call(R C::* f, T&& t, Args&&... args)
+        -> std::enable_if_t
+        <
+            std::is_member_function_pointer<decltype(f)>::value && !detail::IsPointer<T>::value,
+            decltype((std::forward<T>(t).*f)(std::forward<Args>(args)...))
+        >
+    {
+        return (std::forward<T>(t).*f)(std::forward<Args>(args)...);
+    }
+
+    template <class R, class C, class T, class... Args>
+    auto call(R C::* f, T&& t, Args&&... args)
+        -> std::enable_if_t
+        <
+            std::is_member_function_pointer<decltype(f)>::value && detail::IsPointer<T>::value,
+            decltype((std::forward<T>(t)->*f)(std::forward<Args>(args)...))
+        >
+    {
+        return (std::forward<T>(t)->*f)(std::forward<Args>(args)...);
+    }
+
+    template <class R, class C, class T, class... Args>
+    auto call(R C::* f, T&& t, Args&&... args)
+        -> std::enable_if_t
+        <
+            std::is_member_object_pointer<decltype(f)>::value && !detail::IsPointer<T>::value,
+            decltype(std::forward<T>(t).*f)
+        >
+    {
+        return std::forward<T>(t).*f;
+    }
+
+    template <class R, class C, class T, class... Args>
+    auto call(R C::* f, T&& t, Args&&... args)
+        -> std::enable_if_t
+        <
+            std::is_member_object_pointer<decltype(f)>::value && detail::IsPointer<T>::value,
+            decltype(std::forward<T>(t)->*f)
+        >
+    {
+        return std::forward<T>(t)->*f;
+    }
+
+    template <class F, class... Args>
+    auto call(F&& f, Args&&... args)
+        -> decltype(std::forward<F>(f)(std::forward<Args>(args)...))
+    {
+        return std::forward<F>(f)(std::forward<Args>(args)...);
+    }
+
+    template <class T>
+    struct IsUserClass : std::conditional_t<std::is_class<T>::value && !std::is_same<T, string_t>::value, std::true_type, std::false_type> {};
+
+    inline std::string narrow(const std::string& s)
+    {
+        return s;
+    }
+
+    inline std::string narrow(const std::wstring& s)
+    {
+        const auto length = s.length();
+        std::vector<char> multi(length + 1, '\0');
+        std::wcstombs(multi.data(), s.data(), length);
+        return multi.data();
+    }
 
     inline string_t lastError(HSQUIRRELVM vm, const string_t& defaultMessage = SQZ_T("")) {
         sq_getlasterror(vm);
@@ -90,19 +169,6 @@ namespace squeeze
         sq_getstring(vm, -1, &err);
         sq_pop(vm, 2);
         return err;
-    }
-
-    inline std::string narrow(const std::string& s)
-    {
-        return s;
-    }
-
-    inline std::string narrow(const std::wstring& s)
-    {
-        const auto length = s.length();
-        std::vector<char> multi(length + 1, '\0');
-        std::wcstombs(multi.data(), s.data(), length);
-        return multi.data();
     }
 
     template <class E>

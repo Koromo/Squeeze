@@ -11,62 +11,78 @@ namespace squeeze
 {
     /** Push the values into the stack. */
     template <class T, class... Ts>
-    EnableInteger<T> pushValue(HSQUIRRELVM vm, T val, Ts... values)
+    EnableInteger<T> pushValue(HSQUIRRELVM vm, T val, Ts&&... values)
     {
         const auto v = static_cast<SQInteger>(val);
         sq_pushinteger(vm, v);
-        pushValue(vm, values...);
+        pushValue(vm, std::forward<Ts>(values)...);
     }
 
     /// ditto
     template <class T, class... Ts>
-    EnableReal<T> pushValue(HSQUIRRELVM vm, T val, Ts... values)
+    EnableReal<T> pushValue(HSQUIRRELVM vm, T val, Ts&&... values)
     {
         const auto v = static_cast<SQFloat>(val);
         sq_pushfloat(vm, v);
-        pushValue(vm, values...);
+        pushValue(vm, std::forward<Ts>(values)...);
     }
 
     /// ditto
     template <class T, class... Ts>
-    EnableBool<T> pushValue(HSQUIRRELVM vm, T val, Ts... values)
+    EnableBool<T> pushValue(HSQUIRRELVM vm, T val, Ts&&... values)
     {
         const SQBool v = val;
         sq_pushbool(vm, v);
-        pushValue(vm, values...);
+        pushValue(vm, std::forward<Ts>(values)...);
     }
 
     /// ditto
     template <class T, class... Ts>
-    EnableChars<T> pushValue(HSQUIRRELVM vm, T val, Ts... values)
+    EnableChars<T> pushValue(HSQUIRRELVM vm, T val, Ts&&... values)
     {
         sq_pushstring(vm, val, -1);
-        pushValue(vm, values...);
+        pushValue(vm, std::forward<Ts>(values)...);
     }
 
     /// ditto
     template <class T, class... Ts>
-    EnableString<T> pushValue(HSQUIRRELVM vm, const T& val, Ts... values)
+    EnableString<T> pushValue(HSQUIRRELVM vm, const T& val, Ts&&... values)
     {
         sq_pushstring(vm, val.c_str(), val.length());
-        pushValue(vm, values...);
+        pushValue(vm, std::forward<Ts>(values)...);
     }
 
     /// ditto
     template <class T, class... Ts>
-    auto pushValue(HSQUIRRELVM vm, T val, Ts... values)
+    auto pushValue(HSQUIRRELVM vm, T val, Ts&&... values)
         -> std::enable_if_t<std::is_same<T, std::nullptr_t>::value>
     {
         sq_pushnull(vm);
-        pushValue(vm, values...);
+        pushValue(vm, std::forward<Ts>(values)...);
     }
 
     /// ditto
     template <class T, class... Ts>
-    auto pushValue(HSQUIRRELVM vm, T val, Ts... values)
+    auto pushValue(HSQUIRRELVM vm, T val, Ts&&... values)
         -> std::enable_if_t<std::is_convertible<T, HSQOBJECT>::value>
     {
         sq_pushobject(vm, val);
+        pushValue(vm, std::forward<Ts>(values)...);
+    }
+
+    struct UserData
+    {
+        const void* p;
+        size_t s;
+        UserData(const void* p_, size_t s_) : p(p_), s(s_) {}
+    };
+
+    /// ditto
+    template <class... Ts>
+    void pushValue(HSQUIRRELVM vm, const UserData& val, Ts... values)
+    {
+        const auto usrData = sq_newuserdata(vm, val.s);
+        std::memcpy(usrData, val.p, val.s);
         pushValue(vm, values...);
     }
 
@@ -187,27 +203,12 @@ namespace squeeze
         return getValue<const SQChar*>(vm, id);
     }
 
-    /** The memory block abstruction for the pushUserData() function. */
-    struct MemoryBlock
-    {
-        const void* p;
-        size_t s;
-    };
-
     /** Push the values as user datas */
     template <class T, class... Ts>
-    void pushUserData(HSQUIRRELVM vm, T val, Ts... values)
+    void pushUserData(HSQUIRRELVM vm, std::pair<const T*, size_t> val, std::pair<const Ts*, size_t>... values)
     {
-        const auto usrData = sq_newuserdata(vm, sizeof(val));
-        std::memcpy(usrData, &val, sizeof(val));
-        pushUserData(vm, values...);
-    }
-
-    template <class... Ts>
-    void pushUserData(HSQUIRRELVM vm, MemoryBlock mem, Ts... values)
-    {
-        const auto usrData = sq_newuserdata(vm, mem.s);
-        std::memcpy(usrData, mem.p, mem.s);
+        const auto usrData = sq_newuserdata(vm, val.second);
+        std::memcpy(usrData, val.first, val.second);
         pushUserData(vm, values...);
     }
 

@@ -58,15 +58,15 @@ namespace squeeze
         template <class... Args>
         HClass& ctor()
         {
-            newClosure(SQZ_T("constructor"), CtorClosure<Class, std::tuple<Args...>>::ctor, false);
+            newClosure(SQZ_T("constructor"), CtorClosure<Class>::ctor<Args...>, false);
             return *this;
         }
 
         /** Add a member as a variable */
         template <class T>
-        HClass& var(const string_t& name, const T& val, bool isStatic = false)
+        HClass& var(const string_t& name, T&& val, bool isStatic = false)
         {
-            newSlot(name, val, isStatic);
+            newSlot(name, std::forward<T>(val), isStatic);
             return *this;
         }
 
@@ -80,38 +80,27 @@ namespace squeeze
         /** Add a member as a setter. */
         template <
             class Setter,
-            class Traits = FunctionTraits<Setter>,
-            class = std::enable_if_t<std::is_same<typename Traits::ClassType, Class>::value>,
-            class = std::enable_if_t<std::is_same<typename Traits::ReturnType, void>::value>,
-            class = std::enable_if_t<(Traits::arity == 1)>
+            class = std::enable_if_t<std::is_same<ReturnType<Setter>, void>::value>
         >
         HClass& setter(const string_t& name, Setter set)
         {
-            setTable_.newClosure(name, MemClosure<Class, Setter>::fun, false, set);
+            setTable_.newClosure(name, Closure::memfun<Setter, Class>, false, UserData(&set, sizeof(Setter)));
             return *this;
         }
 
         /** Add a member as a getter. */
         template <
             class Getter,
-            class Traits = FunctionTraits<Getter>,
-            class = std::enable_if_t<std::is_same<typename Traits::ClassType, Class>::value>,
-            class = std::enable_if_t<!std::is_same<typename Traits::ReturnType, void>::value>,
-            class = std::enable_if_t<(Traits::arity == 0)>
+            class = std::enable_if_t<!std::is_same<ReturnType<Getter>, void>::value>
         >
         HClass& getter(const string_t& name, Getter get)
         {
-            getTable_.newClosure(name, MemClosure<Class, Getter>::fun, false, get);
+            getTable_.newClosure(name, Closure::memfun<Getter, Class>, false, UserData(&get, sizeof(Getter)));
             return *this;
         }
 
         /** Add a member as a property. */
-        template <
-            class Getter, class Setter,
-            class R = ReturnType<Getter>,
-            class A = ArgumentType<Setter, 0>,
-            class = std::enable_if_t<std::is_same<R, A>::value>
-        >
+        template <class Getter, class Setter>
         HClass& prop(const string_t& name, Getter get, Setter set)
         {
             getter(name, get);
@@ -121,81 +110,57 @@ namespace squeeze
 
         /** Add a member as a non-static function */
         template <
-            class Fun,
-            class = std::enable_if_t<std::is_same<typename FunctionTraits<Fun>::ClassType, Class>::value>,
-            class = std::enable_if_t<!std::is_class<ReturnType<Fun>>::value>
+            class F,
+            class = std::enable_if_t<!IsUserClass<ReturnType<F>>::value>
         >
-        HClass& fun(const string_t& name, Fun fun)
+        HClass& fun(const string_t& name, F f)
         {
-            newClosure(name, MemClosure<Class, Fun>::fun, false, fun);
+            newClosure(name, Closure::memfun<F, Class>, false, UserData(&f, sizeof(F)));
             return *this;
         }
 
         /// ditto
         template <
-            class Fun,
-            class = std::enable_if_t<std::is_same<typename FunctionTraits<Fun>::ClassType, Class>::value>,
-            class = std::enable_if_t<std::is_class<ReturnType<Fun>>::value>
+            class F,
+            class = std::enable_if_t<IsUserClass<ReturnType<F>>::value>
         >
-        HClass& fun(const string_t& name, Fun fun, const string_t& retClassKey)
+        HClass& fun(const string_t& name, F f, const string_t& retClassKey)
         {
-            MemoryBlock<const SQChar*> mem;
-            mem.p = retClassKey.data();
-            mem.s = (retClassKey.length() + 1) * sizeof(SQChar);
-            newClosure(name, MemClosure<Class, Fun>::fun, false, mem, fun);
+            const auto p = retClassKey.data();
+            const auto s = (retClassKey.length() + 1) * sizeof(SQChar);
+            newClosure(key, Closure::memfun<F, Class>, false, UserData(&f, sizeof(F)), UserData(p, s));
             return *this;
         }
 
         /** Add a member as a static function */
         template <
-            class Fun,
-            class = std::enable_if_t<!std::is_member_function_pointer<Fun>::value>,
-            class = std::enable_if_t<!std::is_class<ReturnType<Fun>>::value>
+            class F,
+            class = std::enable_if_t<!IsUserClass<ReturnType<F>>::value>
         >
-        HClass& staticFun(const string_t& name, Fun fun)
+        HClass& staticFun(const string_t& name, F f)
         {
-            newClosure(name, Closure<Fun>::fun, true, fun);
+            newClosure(name, Closure::fun<F>, true, UserData(&f, sizeof(F)));
             return *this;
         }
 
         /// ditto
         template <
-            class Fun,
-            class = std::enable_if_t<!std::is_member_function_pointer<Fun>::value>,
-            class = std::enable_if_t<std::is_class<ReturnType<Fun>>::value>
+            class F,
+            class = std::enable_if_t<IsUserClass<ReturnType<F>>::value>
         >
-        HClass& staticFun(const string_t& name, Fun fun, const string_t& retClassKey)
-        {
-            MemoryBlock mem;
-            mem.p = retClassKey.data();
-            mem.s = (retClassKey.length() + 1) * sizeof(SQChar);
-            newClosure(name, Closure<Fun>::fun, true, fun, mem);
-            return *this;
+        HClass& staticFun(const string_t& name, F f, const string_t& retClassKey)
+       {
+           const auto p = retClassKey.data();
+           const auto s = (retClassKey.length() + 1) * sizeof(SQChar);
+           newClosure(key, Closure<F>::fun, true, UserData(&f, sizeof(F)), UserData(p, s));
+           return *this;
         }
 
     private:
         void init()
         {
-            const auto top = sq_gettop(vm_);
-            pushValue(vm_, obj_);
-
-            pushValue(vm_, SQZ_T("_set"), setTable_);
-            sq_newclosure(vm_, MemClosure<Class>::opSet, 1);
-            if (SQ_FAILED(sq_newslot(vm_, -3, false)))
-            {
-                sq_settop(vm_, top);
-                failed<ObjectHandlingFailed>(vm_, "sq_newslot() failed.");
-            }
-
-            pushValue(vm_, SQZ_T("_get"), getTable_);
-            sq_newclosure(vm_, MemClosure<Class>::opGet, 1);
-            if (SQ_FAILED(sq_newslot(vm_, -3, false)))
-            {
-                sq_settop(vm_, top);
-                failed<ObjectHandlingFailed>(vm_, "sq_newslot() failed.");
-            }
-
-            sq_settop(vm_, top);
+            newClosure(SQZ_T("_set"), Closure::opSet, false, setTable_);
+            newClosure(SQZ_T("_get"), Closure::opGet, false, getTable_);
         }
     };
 }

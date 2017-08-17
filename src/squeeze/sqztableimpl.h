@@ -34,11 +34,10 @@ namespace squeeze
 
         /** Add a closure. */
         template <class... FreeVars>
-        void newClosure(const string_t& key, SQFUNCTION closure, bool bstatic, const FreeVars&... freeVars)
+        void newClosure(const string_t& key, SQFUNCTION closure, bool bstatic, FreeVars&&... freeVars)
         {
             const auto top = sq_gettop(vm_);
-            pushValue(vm_, obj_, key);
-            pushUserData(vm_, freeVars...);
+            pushValue(vm_, obj_, key, std::forward<FreeVars>(freeVars)...);
             sq_newclosure(vm_, closure, sizeof...(FreeVars));
             if (SQ_FAILED(sq_newslot(vm_, -3, bstatic)))
             {
@@ -50,10 +49,10 @@ namespace squeeze
 
     protected:
         template <class T>
-        void newSlot(const string_t& key, const T& val, bool bstatic)
+        void newSlot(const string_t& key, T&& val, bool bstatic)
         {
             const auto top = sq_gettop(vm_);
-            pushValue(vm_, obj_, key, val);
+            pushValue(vm_, obj_, key, std::forward<T>(val));
             if (SQ_FAILED(sq_newslot(vm_, -3, bstatic)))
             {
                 sq_settop(vm_, top);
@@ -63,11 +62,11 @@ namespace squeeze
         }
 
         template <class Return, class... Args>
-        auto call(const string_t& key, HSQOBJECT env, const Args&... args)
+        auto call(const string_t& key, HSQOBJECT env, Args&&... args)
             -> std::enable_if_t<std::is_void<Return>::value, void>
         {
             const auto top = sq_gettop(vm_);
-            if (!prepareCall(key, env, args...))
+            if (!prepareCall(key, env, std::forward<Args>(args)...))
             {
                 sq_settop(vm_, top);
                 failed<CallFailed>(vm_, "sq_call() failed.");
@@ -81,11 +80,11 @@ namespace squeeze
         }
 
         template <class Return, class... Args>
-        auto call(const string_t& key, HSQOBJECT env, const Args&... args)
+        auto call(const string_t& key, HSQOBJECT env, Args&&... args)
             -> std::enable_if_t<!std::is_void<Return>::value, Return>
         {
             const auto top = sq_gettop(vm_);
-            if (!prepareCall(key, env, args...))
+            if (!prepareCall(key, env, std::forward<Args>(args)...))
             {
                 sq_settop(vm_, top);
                 failed<CallFailed>(vm_, "sq_call() failed.");
@@ -113,14 +112,14 @@ namespace squeeze
 
     private:
         template <class... Args>
-        bool prepareCall(const string_t& key, HSQOBJECT env, const Args&... args)
+        bool prepareCall(const string_t& key, HSQOBJECT env, Args&&... args)
         {
             pushValue(vm_, obj_, key);
             if (SQ_FAILED(sq_get(vm_, -2)))
             {
                 return false;
             }
-            pushValue(vm_, env, args...);
+            pushValue(vm_, env, std::forward<Args>(args)...);
             return true;
         }
     };
