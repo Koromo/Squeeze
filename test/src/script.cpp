@@ -54,7 +54,7 @@ TEST(SCRIPT, CLASS)
 
     auto table = vm.rootTable();
     table.clazz(SQZ_T("Vec2"), c);
-    table.fun(SQZ_T("getVec"), getVec, SQZ_T("Vec2"));
+    table.fun(SQZ_T("getVec"), wrapConv(getVec, SQZ_T("Vec2")));
 
     HScript script(vm);
     HTable env(vm);
@@ -83,7 +83,7 @@ TEST(SCRIPT, CLASS_LAMBDA)
 
     auto table = vm.rootTable();
     table.clazz(SQZ_T("Vec2"), c);
-    table.fun(SQZ_T("getVec"), getVec, SQZ_T("Vec2"));
+    table.fun(SQZ_T("getVec"), [](int x, int y) { return ClassConv<Vec>{getVec(x, y), SQZ_T("Vec2")}; });
 
     HScript script(vm);
     HTable env(vm);

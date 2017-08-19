@@ -1,6 +1,7 @@
 #ifndef SQUEEZE_SQZUTIL_H
 #define SQUEEZE_SQZUTIL_H
 
+#include "sqzdef.h"
 #include "sqzvm.h"
 #include "squirrel/squirrel.h"
 #include <tuple>
@@ -52,7 +53,7 @@ namespace squeeze
 
     /// ditto
     template <class F, size_t N>
-    using ArgumentType = std::enable_if_t<(N < FunctionTraits<F>::arity), std::tuple_element_t<N, Arguments<F>>>;
+    using ArgumentType = std::tuple_element_t<N, Arguments<F>>;
 
     /// ditto
     template <class F>
@@ -83,57 +84,55 @@ namespace squeeze
     template <size_t N>
     using MakeIndices = typename detail::MakeIndicesImpl<N, 0, 1>::Type;
 
-    namespace detail
-    {
-        template <class T>
-        struct IsPointer : std::is_pointer<std::remove_reference_t<T>> {};
-    }
-
     /** Call a callable object with arguments. */
     template <class R, class C, class T, class... Args>
     auto call(R C::* f, T&& t, Args&&... args)
         -> std::enable_if_t
         <
-            std::is_member_function_pointer<decltype(f)>::value && !detail::IsPointer<T>::value,
+            std::is_member_function_pointer<decltype(f)>::value,
             decltype((std::forward<T>(t).*f)(std::forward<Args>(args)...))
         >
     {
         return (std::forward<T>(t).*f)(std::forward<Args>(args)...);
     }
 
+    /// ditto
     template <class R, class C, class T, class... Args>
-    auto call(R C::* f, T&& t, Args&&... args)
+    auto call(R C::* f, T* t, Args&&... args)
         -> std::enable_if_t
         <
-            std::is_member_function_pointer<decltype(f)>::value && detail::IsPointer<T>::value,
-            decltype((std::forward<T>(t)->*f)(std::forward<Args>(args)...))
+            std::is_member_function_pointer<decltype(f)>::value,
+            decltype((t->*f)(std::forward<Args>(args)...))
         >
     {
-        return (std::forward<T>(t)->*f)(std::forward<Args>(args)...);
+        return (t->*f)(std::forward<Args>(args)...);
     }
 
+    /// ditto
     template <class R, class C, class T, class... Args>
     auto call(R C::* f, T&& t, Args&&... args)
         -> std::enable_if_t
         <
-            std::is_member_object_pointer<decltype(f)>::value && !detail::IsPointer<T>::value,
+            std::is_member_object_pointer<decltype(f)>::value,
             decltype(std::forward<T>(t).*f)
         >
     {
         return std::forward<T>(t).*f;
     }
 
+    /// ditto
     template <class R, class C, class T, class... Args>
-    auto call(R C::* f, T&& t, Args&&... args)
+    auto call(R C::* f, T* t, Args&&... args)
         -> std::enable_if_t
         <
-            std::is_member_object_pointer<decltype(f)>::value && detail::IsPointer<T>::value,
-            decltype(std::forward<T>(t)->*f)
+            std::is_member_object_pointer<decltype(f)>::value,
+            decltype(t->*f)
         >
     {
-        return std::forward<T>(t)->*f;
+        return t->*f;
     }
 
+    /// ditto
     template <class F, class... Args>
     auto call(F&& f, Args&&... args)
         -> decltype(std::forward<F>(f)(std::forward<Args>(args)...))
@@ -141,14 +140,13 @@ namespace squeeze
         return std::forward<F>(f)(std::forward<Args>(args)...);
     }
 
-    template <class T>
-    struct IsUserClass : std::conditional_t<std::is_class<T>::value && !std::is_same<T, string_t>::value, std::true_type, std::false_type> {};
-
+    /** Convert to unicode character set. */
     inline std::string narrow(const std::string& s)
     {
         return s;
     }
 
+    /// ditto
     inline std::string narrow(const std::wstring& s)
     {
         const auto length = s.length();
@@ -157,7 +155,9 @@ namespace squeeze
         return multi.data();
     }
 
-    inline string_t lastError(HSQUIRRELVM vm, const string_t& defaultMessage = SQZ_T("")) {
+    /** Obtain last error message if exists. */
+    inline string_t lastError(HSQUIRRELVM vm, const string_t& defaultMessage = SQZ_T(""))
+    {
         sq_getlasterror(vm);
         if (sq_gettype(vm, -1) == OT_NULL)
         {
@@ -171,6 +171,7 @@ namespace squeeze
         return err;
     }
 
+    /** Throw an error. */
     template <class E>
     void failed(HSQUIRRELVM vm, const std::string& msg)
     {
@@ -180,6 +181,42 @@ namespace squeeze
             throw E(msg);
         }
         throw E(msg + " " + narrow(s));
+    }
+
+    namespace detail
+    {
+        template <class Conv, class F, class... Args>
+        struct WrappedCall
+        {
+            F f;
+            string_t classKey;
+            Conv operator()(Args... args) const
+            {
+                return{ call(f, args...), classKey };
+            }
+        };
+
+        template <class F, size_t... I>
+        auto wrapConvImpl(F&& f, const string_t& classKey, IndexSequence<I...>)
+            -> WrappedCall<ClassConv<ReturnType<F>>, F, ArgumentType<F, I>...>
+        {
+            return WrappedCall<ClassConv<ReturnType<F>>, F, ArgumentType<F, I>...>{ std::forward<F>(f), classKey };
+        }
+
+        template <class R, class C, size_t... I>
+        auto wrapConvImpl(R C::* f, const string_t& classKey, IndexSequence<I...>)
+            -> WrappedCall<ClassConv<R>, decltype(f), ArgumentType<decltype(f), I>...>
+        {
+            return WrappedCall<ClassConv<R>, decltype(f), C*, ArgumentType<decltype(f), I>...>{ std::forward<F>(f), classKey };
+        }
+    }
+
+    /** Wrap a function and return new function witch returns the ClassConv. */
+    template <class F, class R = ReturnType<F>, class = std::enable_if_t<std::is_class<R>::value && !std::is_same<R, string_t>::value>>
+    auto wrapConv(F&& f, const string_t& classKey)
+        -> decltype (detail::wrapConvImpl(std::forward<F>(f), classKey, MakeIndices<FunctionTraits<F>::arity>()))
+    {
+        return detail::wrapConvImpl(std::forward<F>(f), classKey, MakeIndices<FunctionTraits<F>::arity>());
     }
 }
 

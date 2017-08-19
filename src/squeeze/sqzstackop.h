@@ -176,8 +176,8 @@ namespace squeeze
         const auto type = sq_gettype(vm, id);
         switch (type)
         {
-        case OT_INTEGER: return static_cast<T>(getInteger(vm, id));
-        case OT_BOOL: return static_cast<T>(getBool(vm, id));
+        case OT_INTEGER: return static_cast<T>(!!getInteger(vm, id));
+        case OT_BOOL: return static_cast<T>(!!getBool(vm, id));
         default: failed<StackOperationFailed>(vm, "A type mismatching in getValue()");
         }
         return 0;

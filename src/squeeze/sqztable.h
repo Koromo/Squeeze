@@ -67,26 +67,10 @@ namespace squeeze
         HTable& clazz(const string_t& key, HClass<Class> c);
 
         /** Add a new slot as a function. */
-        template <
-            class F,
-            class = std::enable_if_t<!IsUserClass<ReturnType<F>>::value>
-        >
-        HTable& fun(const string_t& key, F f)
+        template <class F>
+        HTable& fun(const string_t& key, const F& f)
         {
             newClosure(key, Closure::fun<F>, false, UserData(&f, sizeof(F)));
-            return *this;
-        }
-
-        /// ditto
-        template <
-            class F,
-            class = std::enable_if_t<IsUserClass<ReturnType<F>>::value>
-        >
-        HTable& fun(const string_t& key, F f, const string_t& retClassKey)
-        {
-            const auto p = retClassKey.data();
-            const auto s = (retClassKey.length() + 1) * sizeof(SQChar);
-            newClosure(key, Closure::fun<F>, false, UserData(&f, sizeof(F)), UserData(p, s));
             return *this;
         }
 

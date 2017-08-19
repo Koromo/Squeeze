@@ -64,18 +64,31 @@ namespace squeeze
             : std::runtime_error(msg) {}
     };
 
+    /** The class converter */
+    template <class T>
+    struct ClassConv
+    {
+        T v;
+        string_t classKey;
+    };
+
+    /** Defined as U type if T is a integer type. */
     template <class T, class U = void, class X = std::remove_cv_t<std::remove_reference_t<T>>>
     using EnableInteger = std::enable_if_t<std::is_integral<X>::value && !std::is_same<X, bool>::value, U>;
 
+    /** Defined as U type if T is a boolean type. */
     template <class T, class U = void, class X = std::remove_cv_t<std::remove_reference_t<T>>>
     using EnableBool = std::enable_if_t<std::is_same<X, bool>::value, U>;
 
+    /** Defined as U type if T is a boolean type. */
     template <class T, class U = void, class X = std::remove_cv_t<std::remove_reference_t<T>>>
     using EnableReal = std::enable_if_t<std::is_floating_point<X>::value, U>;
 
+    /** Defined as U type if T is a character array. */
     template <class T, class U = void, class X = std::remove_cv_t<std::remove_reference_t<T>>>
     using EnableChars = std::enable_if_t<std::is_same<X, const SQChar*>::value, U>;
 
+    /** Defined as U type if T is a string type. */
     template <class T, class U = void, class X = std::remove_cv_t<std::remove_reference_t<T>>>
     using EnableString = std::enable_if_t<std::is_same<X, string_t>::value, U>;
 }

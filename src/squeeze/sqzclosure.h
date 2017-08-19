@@ -66,32 +66,29 @@ namespace squeeze
         return 0;
     }
 
+    /// ditto
     template <class R>
-    auto pushReturn(HSQUIRRELVM vm, R&& ret)
-        -> std::enable_if_t<IsUserClass<R>::value && !std::is_same<R, detail::VoidType>::value, SQInteger>
+    auto pushReturn(HSQUIRRELVM vm, R ret)
+        -> std::enable_if_t<!std::is_same<R, detail::VoidType>::value, SQInteger>
     {
-        SQChar* classKey;
-        sq_getuserdata(vm, -2, reinterpret_cast<SQUserPointer*>(&classKey), nullptr);
+        pushValue(vm, ret);
+        return 1;
+    }
 
+    /// ditto
+    template <class T>
+    SQInteger pushReturn(HSQUIRRELVM vm, ClassConv<T>&& ret)
+    {
         HSQOBJECT env;
         sq_getstackobj(vm, 1, &env);
         sq_addref(vm, &env);
-
-        if (!pushClassInstance(vm, env, classKey, std::move(ret)))
+        if (!pushClassInstance(vm, env, ret.classKey.c_str(), std::move(ret.v)))
         {
             sq_release(vm, &env);
             failed<CallFailed>(vm, "Failed to create instance.");
         }
 
         sq_release(vm, &env);
-        return 1;
-    }
-
-    template <class R>
-    auto pushReturn(HSQUIRRELVM vm, R ret)
-        -> std::enable_if_t<!IsUserClass<R>::value && !std::is_same<R, detail::VoidType>::value, SQInteger>
-    {
-        pushValue(vm, ret);
         return 1;
     }
 
@@ -113,7 +110,7 @@ namespace squeeze
         }
     }
 
-    /** Fetch and call a function */
+    /** Fetch arguments from the stack and call the function */
     template <class F, size_t arity = FunctionTraits<F>::arity>
     auto fetch(HSQUIRRELVM vm, F&& f)
         -> decltype(detail::fetchImpl<0>(MakeIndices<arity>(), vm, std::forward<F>(f)))
@@ -121,6 +118,7 @@ namespace squeeze
         return detail::fetchImpl<0>(MakeIndices<arity>(), vm, std::forward<F>(f));
     }
 
+    /// ditto
     template <class F, class Head, size_t arity = FunctionTraits<F>::arity, class = std::enable_if_t<(arity > 0)>>
     auto fetch(HSQUIRRELVM vm, F&& f, Head&& head)
         -> decltype(detail::fetchImpl<1>(MakeIndices<arity - 1>(), vm, std::forward<F>(f), std::forward<Head>(head)))
@@ -128,6 +126,7 @@ namespace squeeze
         return detail::fetchImpl<1>(MakeIndices<arity - 1>(), vm, std::forward<F>(f), std::forward<Head>(head));
     }
 
+    /// ditto
     template <class R, class C, class Head>
     auto fetch(HSQUIRRELVM vm, R C::* f, Head&& head)
         -> decltype(detail::fetchImpl<0>(MakeIndices<FunctionTraits<decltype(f)>::arity>(), vm, std::forward<decltype(f)>(f), std::forward<Head>(head)))

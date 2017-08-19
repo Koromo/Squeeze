@@ -11,14 +11,16 @@ Otherwise (default), Squeeze use float type.
 #define SQUSEDOUBLE
 #endif
 
+#include "sqzdef.h"
+#include "sqzutil.h"
 #include "sqzscript.h"
 #include "sqzclass.h"
 #include "sqztable.h"
 #include "sqzobject.h"
+#include "sqztableimpl.h"
+#include "sqzclosure.h"
 #include "sqzvm.h"
 #include "sqzstackop.h"
-#include "sqzdef.h"
-#include "sqzutil.h"
 
 #include "sqzimpl.h"
 
