@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -19,51 +19,51 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\squeeze\squeeze.h" />
-    <ClInclude Include="src\squeeze\sqzclosure.h" />
-    <ClInclude Include="src\squeeze\sqztableimpl.h" />
-    <ClInclude Include="src\squeeze\sqzclass.h" />
-    <ClInclude Include="src\squeeze\sqzdef.h" />
-    <ClInclude Include="src\squeeze\sqzobject.h" />
-    <ClInclude Include="src\squeeze\sqzscript.h" />
-    <ClInclude Include="src\squeeze\sqzstackop.h" />
-    <ClInclude Include="src\squeeze\sqztable.h" />
-    <ClInclude Include="src\squeeze\sqzutil.h" />
-    <ClInclude Include="src\squeeze\sqzvm.h" />
-    <ClInclude Include="src\squeeze\sqzimpl.h" />
+    <ClInclude Include="src\squeeze.h" />
+    <ClInclude Include="src\sqzclass.h" />
+    <ClInclude Include="src\sqzclosure.h" />
+    <ClInclude Include="src\sqzdef.h" />
+    <ClInclude Include="src\sqzimpl.h" />
+    <ClInclude Include="src\sqzobject.h" />
+    <ClInclude Include="src\sqzscript.h" />
+    <ClInclude Include="src\sqzstackop.h" />
+    <ClInclude Include="src\sqztable.h" />
+    <ClInclude Include="src\sqztableimpl.h" />
+    <ClInclude Include="src\sqzutil.h" />
+    <ClInclude Include="src\sqzvm.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{9F2CD6D0-CC22-4CC8-B22B-BE604B0B3861}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>squeeze</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -84,16 +84,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(IncludePath)</IncludePath>
+    <IncludePath>D:\home\programs\squeeze\squirrel\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(IncludePath)</IncludePath>
+    <IncludePath>D:\home\programs\squeeze\squirrel\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(IncludePath)</IncludePath>
+    <IncludePath>D:\home\programs\squeeze\squirrel\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(IncludePath)</IncludePath>
+    <IncludePath>D:\home\programs\squeeze\squirrel\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

@@ -2,45 +2,44 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+      <UniqueIdentifier>{3e8a9917-55cb-4ef5-8e08-a29b4b0fe958}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\squeeze\sqztable.h">
+    <ClInclude Include="src\squeeze.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqzstackop.h">
+    <ClInclude Include="src\sqzclass.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqzdef.h">
+    <ClInclude Include="src\sqzclosure.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\squeeze.h">
+    <ClInclude Include="src\sqzdef.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqzscript.h">
+    <ClInclude Include="src\sqzimpl.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqzobject.h">
+    <ClInclude Include="src\sqzobject.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqzvm.h">
+    <ClInclude Include="src\sqzscript.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqzclass.h">
+    <ClInclude Include="src\sqzstackop.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqztableimpl.h">
+    <ClInclude Include="src\sqztable.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqzimpl.h">
+    <ClInclude Include="src\sqztableimpl.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqzutil.h">
+    <ClInclude Include="src\sqzutil.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\squeeze\sqzclosure.h">
+    <ClInclude Include="src\sqzvm.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
